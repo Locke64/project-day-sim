@@ -1,3 +1,5 @@
+import java.util.concurrent.CountDownLatch;
+
 public class Main {
 
 	public static void main(String[] args) {
@@ -6,7 +8,7 @@ public class Main {
 	
 		// create actors
 		Clock clock = new Clock(startLatch);
-		Manager manager = new Manager(startLatch);
+		Manager manager = new Manager(clock, startLatch);
 		Employee[] employees = new Employee[12];
 		int counter = 0;
 		for (int team = 1; team <= 3; team++) {

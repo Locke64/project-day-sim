@@ -1,3 +1,5 @@
+import java.util.concurrent.CountDownLatch;
+
 public class Manager extends Thread {
 
 	private static final String ARRIVE = "%s Manager arrives.";
@@ -7,16 +9,20 @@ public class Manager extends Thread {
 	private CountDownLatch startLatch;
 	private int workTime = 0;
 	
-	public Manager(Clock clock, CountDownLatch startLatch) {
+	public Manager( Clock clock, CountDownLatch startLatch ) {
 		this.clock = clock;
 		this.startLatch = startLatch;
 	}
 
 	public void run() {
-		// wait until all actors are ready
-		startLatch.await();
-		
-		// arrive at 8:00
-		System.out.println( String.format( ARRIVE, clock.getTime().toString() ) );
+		try {
+			// wait until all actors are ready
+			startLatch.await();
+			
+			// arrive at 8:00
+			System.out.println( String.format( ARRIVE, clock.getTime().toString() ) );
+		} catch( InterruptedException e ) {
+			e.printStackTrace();
+		}
 	}
 }

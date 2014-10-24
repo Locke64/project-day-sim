@@ -1,3 +1,6 @@
+import java.util.concurrent.CountDownLatch;
+import java.util.Random;
+
 public class Employee extends Thread {
 	
 	private static final String ARRIVE = "%s Employee %s arrives.";
@@ -14,15 +17,19 @@ public class Employee extends Thread {
 
 	public void run() {
 		Random gen = new Random();
-		LocalTime startTime = LocalTime.of(8, gen.nextInt(30));
-		
-		// wait until all actors are ready
-		startLatch.await();
-		
-		// arrive between 8:00 and 8:30
-		while( startTime.compareTo( clock.getTime() ) > 0 )
-			wait();
-		System.out.println( String.format( ARRIVE, clock.getTime().toString(), name ) );
+		Clock.Time startTime = new Clock.Time( 8, gen.nextInt( 30 ) );
+
+		try {
+			// wait until all actors are ready
+			startLatch.await();
+			
+			// arrive between 8:00 and 8:30
+			while( startTime.compareTo( clock.getTime() ) > 0 )
+				wait();
+			System.out.println( String.format( ARRIVE, clock.getTime().toString(), name ) );
+		} catch( InterruptedException e ) {
+			e.printStackTrace();
+		}
 	}
 	
 }

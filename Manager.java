@@ -25,17 +25,17 @@ public class Manager extends Thread {
 			
 			// arrive at 8:00
 			System.out.println( String.format( ARRIVE, clock.getTime().toString() ) );
-			clock.waitFor( new Clock.Time( 10, 0 ) );
+			clock.nextTime( new Clock.Time( 10, 0 ) );
 			System.out.println( String.format( ARRIVE_EXE_MEETING, clock.getTime().toString(), "morning" ) );
-			clock.waitFor( new Clock.Time( 11, 0 ) );
+			clock.nextTime( new Clock.Time( 11, 0 ) );
 			System.out.println( String.format( LEAVE_EXE_MEETING, clock.getTime().toString(), "morning" ) );
-			clock.waitFor( new Clock.Time( 12, 0 ) );
+			clock.nextTime( new Clock.Time( 12, 0 ) );
 			System.out.println( String.format( LUNCH_START, clock.getTime().toString() ) );
-			clock.waitFor( new Clock.Time( 1, 0 ) );
+			clock.nextTime( new Clock.Time( 1, 0 ) );
 			System.out.println( String.format( LUNCH_END, clock.getTime().toString() ) );
-			clock.waitFor( new Clock.Time( 2, 0 ) );
+			clock.nextTime( new Clock.Time( 2, 0 ) );
 			System.out.println( String.format( ARRIVE_EXE_MEETING, clock.getTime().toString(), "afternoon" ) );
-			clock.waitFor( new Clock.Time( 3, 0 ) );
+			clock.nextTime( new Clock.Time( 3, 0 ) );
 			System.out.println( String.format( LEAVE_EXE_MEETING, clock.getTime().toString(), "afternoon" ) );
 		} catch( InterruptedException e ) {
 			e.printStackTrace();

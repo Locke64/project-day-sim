@@ -87,7 +87,11 @@ public class Clock extends Thread {
 			return mymins - othermins;
 		}
 		public synchronized String toString() {
-			return hour + ":" + minute;
+			if (minute < 10) {
+				return hour + ":0" + minute;
+			} else {
+				return hour + ":" + minute;
+			}
 		}
 	}
 }

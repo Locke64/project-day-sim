@@ -27,13 +27,8 @@ public class Employee extends Thread {
 		try {
 			// wait until all actors are ready
 			startLatch.await();
-			
-			// arrive between 8:00 and 8:30
-			arriveMinute = gen.nextInt( 30 );
-			Clock.Time arriveTime = new Clock.Time( 8, arriveMinute );
-			clock.waitFor( arriveTime );
-			System.out.println( String.format( ARRIVE, arriveTime.toString(), name ) );
-			
+			simulate();
+			/*
 			// go to lunch between 12:00 and 12:30
 			//TODO handle when they don't get here until after 12:00 (i.e. they're asking a question)
 			int lunchStartMinute = gen.nextInt( 30 );
@@ -55,10 +50,52 @@ public class Employee extends Thread {
 			Clock.Time departTime = new Clock.Time( 4, departMinute );
 			clock.waitFor( departTime );
 			System.out.println( String.format( DEPART, departTime.toString(), name, 8, departMinute - arriveMinute - lunchDuration ) );
-			
+			*/
 		} catch( InterruptedException e ) {
 			e.printStackTrace();
 		}
+	}
+	
+	private synchronized void simulate() {
+		Random gen = new Random();		
+		// arrive between 8:00 and 8:30
+		arriveMinute = gen.nextInt( 30 ); //TODO 31
+		Clock.Time arriveTime = new Clock.Time( 8, arriveMinute );
+		clock.nextTime( arriveTime );
+		System.out.println( String.format( ARRIVE, arriveTime, name ) );
+		
+		//TODO go to meetings
+		
+		// when's lunch?
+		int lunchStartMinute = gen.nextInt( 30 );
+		Clock.Time lunchStartTime = new Clock.Time( 12, lunchStartMinute );
+
+		// ask questions until lunch
+		while( clock.nextTime().compareTo( lunchStartTime ) < 0 ) {
+			//TODO ask questions
+		}
+		
+		// go to lunch
+		System.out.println( String.format( LUNCH_START, lunchStartTime, name ) );
+		int lunchEndMinute = lunchStartMinute + 30;
+		lunchEndMinute += gen.nextInt( 30 - arriveMinute );
+		lunchEndMinute = Math.min( lunchEndMinute, 59 );
+		lunchDuration = lunchEndMinute - lunchStartMinute;
+		Clock.Time lunchEndTime = new Clock.Time( 12, lunchEndMinute );
+		clock.nextTime( lunchEndTime );
+		System.out.println( String.format( LUNCH_END, lunchEndTime, name ) );
+
+		// when can I leave? -between 4:30 and 5:00, after at least 8 hours of work
+		int earliestDeparture = arriveMinute + lunchDuration;
+		int departMinute = gen.nextInt( 60 - earliestDeparture ) + earliestDeparture;
+		Clock.Time departTime = new Clock.Time( 4, departMinute );
+		while( clock.nextTime().compareTo( departTime ) < 0 ) {
+			//TODO ask questions
+		}
+		
+		// leave
+		System.out.println( String.format( DEPART, departTime.toString(), name, 8, departMinute - arriveMinute - lunchDuration ) );
+		clock.nextTime( new Clock.Time( 5, 0 ) ); // let everyone else go too
 	}
 	
 }

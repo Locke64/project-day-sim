@@ -1,4 +1,6 @@
+import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CyclicBarrier;
 import java.util.List;
 import java.util.ArrayList;
 
@@ -13,10 +15,16 @@ public class Clock extends Thread {
 
 	private Time time;
 	private CountDownLatch startLatch;
+	private CyclicBarrier incrementBarrier;
 	private List<CountDownLatch> timers = new ArrayList<CountDownLatch>();
 	
 	public Clock( CountDownLatch startLatch ) {
 		this.startLatch = startLatch;
+		incrementBarrier = new CyclicBarrier( 12, new Runnable() {
+				public void run() {
+					incrementTime();
+				}
+			});
 		time = DAY_START.copy();
 	}
 
@@ -27,7 +35,7 @@ public class Clock extends Thread {
 		
 			// increment the minute every 10 ms
 			while(DAY_END.compareTo(time) > 0) {
-				incrementTime();
+				//incrementTime();
 			}
 		} catch( InterruptedException e ) {
 			e.printStackTrace();
@@ -51,6 +59,7 @@ public class Clock extends Thread {
 		return time.copy();
 	}
 	
+	// @deprecated
 	public void waitFor( Time time ) {
 		CountDownLatch timer = new CountDownLatch( time.compareTo( getTime() ) );
 		timers.add( timer );
@@ -59,6 +68,24 @@ public class Clock extends Thread {
 		} catch( InterruptedException e ) {
 			e.printStackTrace();
 		}
+	}
+	
+	// Gets the next time increment once it happens (all threads have asked for it)
+	public Time nextTime() {
+		try {
+			incrementBarrier.await();
+		} catch( InterruptedException e ) {
+			e.printStackTrace();
+		} catch( BrokenBarrierException e ) {
+			e.printStackTrace();
+		}
+		return getTime();
+	}
+	
+	// Waits until the clock reaches the given time
+	public Time nextTime( Time until ) {
+		while( nextTime().compareTo( until ) < 0 ) {}
+		return getTime();
 	}
 	
 	public static class Time {

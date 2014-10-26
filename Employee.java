@@ -10,7 +10,7 @@ public class Employee extends Thread {
 	private static final String HAS_QUESTION = "%s\tEmployee %s has a question.";
 	private static final String LEAD_QUESTION = "%s\tTeam lead %s has a question and goes to ask the manager.";
 	private static final String LEAD_ANSWER = "%s\tTeam lead %s answered employee %s question.";
-	private static final String ASK_MANAGER = "%s\tTeam lead %s couldn't answer employee %s question so both go ask the manager";
+	private static final String ASK_MANAGER = "%s\tTeam lead %s couldn't answer employee %s question so both go ask the manager.";
 	
 	private String name;
 	private Clock clock;
@@ -19,6 +19,7 @@ public class Employee extends Thread {
 	
 	private int arriveMinute;
 	private int lunchDuration;
+	private int timeWorked;
 	
 	public Employee(String name, Clock clock, Manager manager, Employee teamLead) {
 		this.name = name;
@@ -72,7 +73,8 @@ public class Employee extends Thread {
 		// assuming I won't ask questions after the project status meeting?
 		
 		// leave
-		System.out.println( String.format( DEPART, departTime.toString(), name, 8, departMinute - arriveMinute - lunchDuration ) );
+		timeWorked = departMinute - arriveMinute - lunchDuration;
+		System.out.println( String.format( DEPART, departTime.toString(), name, 8, timeWorked ) );
 		clock.nextTime( Clock.timeOf( 5, 0 ) ); // let everyone else go too
 	}
 	
@@ -94,6 +96,14 @@ public class Employee extends Thread {
 	
 	public String getEmployeeName() {
 		return this.name;
+	}
+	
+	public int getLunchDuration() {
+		return this.lunchDuration;
+	}
+	
+	public int getTimeWorked() {
+		return this.timeWorked;
 	}
 	
 }

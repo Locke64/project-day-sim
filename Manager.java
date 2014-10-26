@@ -91,9 +91,11 @@ public class Manager extends Thread {
 	private synchronized void morningExecMeeting() {
 		canAnswerQuestions = false;
 		getAttention( true ); // finish answering a question
+		Clock.Time startMeeting = clock.getTime();
 		System.out.println( String.format( ARRIVE_EXE_MEETING, clock.getTime().toString(), "morning" ) );
 		clock.waitUntil( Clock.timeOf( 11, 0 ) );
-		timeMeeting += 60; //TODO calculate difference
+		Clock.Time endMeeting = clock.getTime();
+		timeMeeting += endMeeting.compareTo(startMeeting);
 		System.out.println( String.format( LEAVE_EXE_MEETING, clock.getTime().toString(), "morning" ) );
 		canAnswerQuestions = true;
 		releaseAttention();
@@ -114,9 +116,11 @@ public class Manager extends Thread {
 	private synchronized void afternoonExecMeeting() {
 		canAnswerQuestions = false;
 		getAttention( true ); // finish answering a question
+		Clock.Time startMeeting = clock.getTime();
 		System.out.println( String.format( ARRIVE_EXE_MEETING, clock.getTime().toString(), "afternoon" ) );
 		clock.waitUntil( Clock.timeOf( 3, 0 ) );
-		timeMeeting += 60; //TODO calculate difference
+		Clock.Time endMeeting = clock.getTime();
+		timeMeeting += endMeeting.compareTo(startMeeting);
 		System.out.println( String.format( LEAVE_EXE_MEETING, clock.getTime().toString(), "afternoon" ) );
 		canAnswerQuestions = true;
 		releaseAttention();

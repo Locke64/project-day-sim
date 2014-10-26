@@ -1,3 +1,5 @@
+import java.util.concurrent.BrokenBarrierException;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.CountDownLatch;
 import java.util.Random;
 
@@ -11,6 +13,8 @@ public class Employee extends Thread {
 	private static final String LEAD_QUESTION = "%s\tTeam lead %s has a question and goes to ask the manager.";
 	private static final String LEAD_ANSWER = "%s\tTeam lead %s answered employee %s's question.";
 	private static final String ASK_MANAGER = "%s\tTeam lead %s couldn't answer employee %s's question so both go ask the manager.";
+	private static final String STANDUP_START = "%s\tTeam lead %s begins the team standup meeting.";
+	private static final String STANDUP_END = "%s\tTeam lead %s ends the team standup meeting.";
 	
 	// random generator
 	Random gen;
@@ -18,8 +22,15 @@ public class Employee extends Thread {
 	// lock for asking questions
 	private boolean busy = true;
 	
+	// barrier for morning standup
+	private CyclicBarrier standupBarrier;
+	
+	// latch for ending the morning standup
+	private CountDownLatch standupLatch;
+	
 	// collaborators
 	private Clock clock;
+	private ConferenceRoom confRoom;
 	private Manager manager;
 	private Employee teamLead;
 	
@@ -28,12 +39,15 @@ public class Employee extends Thread {
 	private int lunchDuration;
 	private int timeWorked;
 	
-	public Employee(String name, Clock clock, Manager manager, Employee teamLead) {
+	public Employee(String name, Clock clock, ConferenceRoom confRoom, Manager manager, Employee teamLead) {
 		super( name );
 		this.clock = clock;
+		this.confRoom = confRoom;
 		this.manager = manager;
 		this.teamLead = teamLead;
 		this.gen = new Random();
+		this.standupBarrier = new CyclicBarrier( 4 );
+		this.standupLatch = new CountDownLatch( 1 );
 	}
 
 	public void run() {
@@ -45,11 +59,7 @@ public class Employee extends Thread {
 		busy = false;
 		
 		// go to daily standups
-		if( teamLead == null ) { // I'm a team lead
-			doStandup();
-		}
-		
-		// when's lunch?
+		doStandups();
 
 		// ask questions until manager goes to lunch (to avoid missing lunch while waiting for manager)
 		// this also prevents devs from asking team leads questions when they could be at lunch
@@ -60,16 +70,7 @@ public class Employee extends Thread {
 		}
 		
 		// go to lunch
-		int lunchStartMinute = gen.nextInt( 30 );
-		Clock.Time lunchStartTime = Clock.timeOf( 12, lunchStartMinute );
-		System.out.println( String.format( LUNCH_START, lunchStartTime, getName() ) );
-		int lunchEndMinute = lunchStartMinute + 30;
-		lunchEndMinute += gen.nextInt( 30 - arriveMinute );
-		lunchEndMinute = Math.min( lunchEndMinute, 59 );
-		lunchDuration = lunchEndMinute - lunchStartMinute;
-		Clock.Time lunchEndTime = Clock.timeOf( 12, lunchEndMinute );
-		clock.waitUntil( lunchEndTime );
-		System.out.println( String.format( LUNCH_END, lunchEndTime, getName() ) );
+		lunch();
 		
 		Clock.Time statusMeetingTime = Clock.timeOf( 4, 0 );
 		while( clock.getTime().compareTo( statusMeetingTime ) < 0 ) {
@@ -89,15 +90,35 @@ public class Employee extends Thread {
 		
 		// leave
 		timeWorked = departMinute - arriveMinute - lunchDuration;
-		System.out.println( String.format( DEPART, departTime.toString(), getName(), 8, timeWorked ) );
+		System.out.println( String.format( DEPART, departTime, getName(), 8, timeWorked ) );
 	}
-	
-	private synchronized void doStandup() {
+
+	private synchronized void doStandups() {
 		busy = true;
-		manager.morningStandUp();
-		clock.waitFor( 15 );
+		if( teamLead == null ) {
+			manager.reportForStandup(); // report to manager for daily project standup
+			morningStandup(); // hold team-based standup
+		} else {
+			teamLead.reportForStandup(); // report to team lead for team-based standup
+		}
 		busy = false;
 		notifyAll();
+	}
+	
+	private synchronized void morningStandup() {
+		try {
+			standupBarrier.await();
+		} catch( InterruptedException e ) {
+			e.printStackTrace();
+		} catch( BrokenBarrierException e ) {
+			e.printStackTrace();
+		}
+		confRoom.enter();
+		System.out.println( String.format( STANDUP_START, clock.getTime(), getName() ) );
+		clock.waitFor( 15 );
+		System.out.println( String.format( STANDUP_END, clock.getTime(), getName() ) );
+		confRoom.leave();
+		standupLatch.countDown();
 	}
 	
 	private synchronized void askQuestions() {
@@ -119,8 +140,38 @@ public class Employee extends Thread {
 		}
 	}
 	
+	private synchronized void lunch() {
+		//TODO wait until not busy
+		// then, random between NOW and 30, instead of 0 and 30
+		int lunchStartMinute = gen.nextInt( 30 );
+		Clock.Time lunchStartTime = Clock.timeOf( 12, lunchStartMinute );
+		clock.waitUntil( lunchStartTime );
+		busy = true;
+		System.out.println( String.format( LUNCH_START, lunchStartTime, getName() ) );
+		int lunchEndMinute = lunchStartMinute + 30;
+		lunchEndMinute += gen.nextInt( 30 - arriveMinute );
+		lunchEndMinute = Math.min( lunchEndMinute, 59 );
+		lunchDuration = lunchEndMinute - lunchStartMinute;
+		Clock.Time lunchEndTime = Clock.timeOf( 12, lunchEndMinute );
+		clock.waitUntil( lunchEndTime );
+		System.out.println( String.format( LUNCH_END, lunchEndTime, getName() ) );
+		busy = false;
+		notifyAll();
+	}
+
+	public void reportForStandup() {
+		try {
+			standupBarrier.await(); // report ready to begin
+			standupLatch.await(); // wait for meeting to end
+		} catch( InterruptedException e ) {
+			e.printStackTrace();
+		} catch( BrokenBarrierException e ) {
+			e.printStackTrace();
+		}
+	}
+	
 	// Employee emp asks its team lead a question.
-	private synchronized void askQuestion( Employee emp ) {
+	public synchronized void askQuestion( Employee emp ) {
 		while( busy ) {
 			try {
 				wait();
@@ -139,7 +190,7 @@ public class Employee extends Thread {
 		notifyAll();
 	}
 	
-	private synchronized void getAttention() {
+	public synchronized void getAttention() {
 		while( busy ) {
 			try {
 				wait();
@@ -150,7 +201,7 @@ public class Employee extends Thread {
 		busy = true;
 	}
 	
-	private synchronized void releaseAttention() {
+	public synchronized void releaseAttention() {
 		busy = false;
 		notifyAll();
 	}

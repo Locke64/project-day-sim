@@ -6,6 +6,7 @@ public class Main {
 	
 		// create actors
 		Clock clock = new Clock();
+		ConferenceRoom confRoom = new ConferenceRoom();
 		Manager manager = new Manager(clock);
 		Employee[] employees = new Employee[12];
 		Employee[] teamLeads = new Employee[3];
@@ -14,10 +15,10 @@ public class Main {
 			for (int employeeNum = 1; employeeNum <= 4; employeeNum++) {
 				Employee employee;
 				if (employeeNum == 1) {
-					employee = new Employee(team + "" + employeeNum, clock, manager, null);
+					employee = new Employee(team + "" + employeeNum, clock, confRoom, manager, null);
 					teamLeads[team-1] = employee;
 				} else {
-					employee = new Employee(team + "" + employeeNum, clock, manager, teamLeads[team-1]);
+					employee = new Employee(team + "" + employeeNum, clock, confRoom, manager, teamLeads[team-1]);
 				}
 				employees[counter] = employee;
 				counter++;

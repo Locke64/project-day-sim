@@ -24,22 +24,13 @@ public class Manager extends Thread {
 	// barrier for morning standup
 	private CyclicBarrier standupBarrier;
 	
+	// latch for ending the morning standup
+	private CountDownLatch standupLatch;
+	
 	public Manager( Clock clock ) {
 		this.clock = clock;
 		this.standupBarrier = new CyclicBarrier( 4 );
-	}
-	//When he arrives at 8:00 each day, the manager engages in daily planning 
-	//activites and then waits (doing administrivia) until all the team leads 
-	//arrive at his office. When all the leads have arrived, they knock
-	//on the manager's door and enter for their daily 15 minute standup meeting.
-	public void morningStandUp(){
-		try {
-			standupBarrier.await();
-		} catch( InterruptedException e ) {
-			e.printStackTrace();
-		} catch( BrokenBarrierException e ) {
-			e.printStackTrace();
-		}
+		this.standupLatch = new CountDownLatch( 1 );
 	}
 	
 	public void run() {
@@ -47,12 +38,7 @@ public class Manager extends Thread {
 		System.out.println( String.format( ARRIVE, clock.getTime().toString() ) );
 		
 		// team lead standup
-		busy = true;
-		morningStandUp();
-		System.out.println( String.format( START_LEAD_MEETING, clock.getTime().toString() ) );
-		clock.waitFor( 15 );
-		System.out.println( String.format( END_LEAD_MEETING, clock.getTime().toString() ) );
-		busy = false;
+		morningStandup();
 		
 		//TODO make sure no questions are asked <10 mins before meeting
 		clock.waitUntil( new Clock.Time( 10, 0 ) );
@@ -77,6 +63,23 @@ public class Manager extends Thread {
 		//TODO depart
 	}
 	
+	private synchronized void morningStandup() {
+		busy = true;
+		try {
+			standupBarrier.await();
+		} catch( InterruptedException e ) {
+			e.printStackTrace();
+		} catch( BrokenBarrierException e ) {
+			e.printStackTrace();
+		}
+		System.out.println( String.format( START_LEAD_MEETING, clock.getTime().toString() ) );
+		clock.waitFor( 15 );
+		System.out.println( String.format( END_LEAD_MEETING, clock.getTime().toString() ) );
+		standupLatch.countDown();
+		busy = false;
+		notifyAll();
+	}
+	
 	// morning executive meeting
 	private synchronized void morningExecMeeting() {
 		busy = true;
@@ -97,6 +100,19 @@ public class Manager extends Thread {
 		notifyAll();
 	}
 	
+	// report to the manager for the daily project standup meeting
+	public void reportForStandup(){
+		try {
+			standupBarrier.await(); // report ready to begin
+			standupLatch.await(); // wait for meeting to end
+		} catch( InterruptedException e ) {
+			e.printStackTrace();
+		} catch( BrokenBarrierException e ) {
+			e.printStackTrace();
+		}
+	}
+	
+	// Employee emp asks manager a question
 	public synchronized void askQuestion( Employee emp ) {
 		while( busy ) {
 			try {

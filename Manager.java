@@ -17,7 +17,7 @@ public class Manager extends Thread {
 	private static final String ANSWER_QUESTION = "%s\tManager answers employee %s's question.";
 	
 	private Clock clock;
-	private int workTime = 0;
+	private int timeMeeting;
 	
 	// lock for asking questions
 	private boolean busy = false;
@@ -36,6 +36,7 @@ public class Manager extends Thread {
 		this.clock = clock;
 		this.standupBarrier = new CyclicBarrier( 4 );
 		this.standupLatch = new CountDownLatch( 1 );
+		this.timeMeeting = 0;
 	}
 	
 	public void run() {
@@ -75,6 +76,7 @@ public class Manager extends Thread {
 		}
 		System.out.println( String.format( START_LEAD_MEETING, clock.getTime().toString() ) );
 		clock.waitFor( 15 );
+		timeMeeting += 15;
 		System.out.println( String.format( END_LEAD_MEETING, clock.getTime().toString() ) );
 		standupLatch.countDown();
 		releaseAttention();
@@ -86,6 +88,7 @@ public class Manager extends Thread {
 		getAttention( true ); // finish answering a question
 		System.out.println( String.format( ARRIVE_EXE_MEETING, clock.getTime().toString(), "morning" ) );
 		clock.waitUntil( Clock.timeOf( 11, 0 ) );
+		timeMeeting += 60;
 		System.out.println( String.format( LEAVE_EXE_MEETING, clock.getTime().toString(), "morning" ) );
 		canAnswerQuestions = true;
 		releaseAttention();
@@ -108,6 +111,7 @@ public class Manager extends Thread {
 		getAttention( true ); // finish answering a question
 		System.out.println( String.format( ARRIVE_EXE_MEETING, clock.getTime().toString(), "afternoon" ) );
 		clock.waitUntil( Clock.timeOf( 3, 0 ) );
+		timeMeeting += 60;
 		System.out.println( String.format( LEAVE_EXE_MEETING, clock.getTime().toString(), "afternoon" ) );
 		canAnswerQuestions = true;
 		releaseAttention();
@@ -130,6 +134,7 @@ public class Manager extends Thread {
 		getAttention();
 		System.out.println( String.format( HEAR_QUESTION, clock.getTime(), emp.getName() ) );
 		clock.waitFor( 10 );
+		timeMeeting += 10;
 		System.out.println( String.format( ANSWER_QUESTION, clock.getTime(), emp.getName() ) );
 		releaseAttention();
 	}
@@ -154,5 +159,9 @@ public class Manager extends Thread {
 	public synchronized void releaseAttention() {
 		busy = false;
 		notifyAll();
+	}
+	
+	public int getTimeMeeting() {
+		return this.timeMeeting;
 	}
 }

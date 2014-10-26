@@ -31,27 +31,34 @@ public class Main {
 		for (int a = 0; a < 12; a++) {
 			employees[a].start();
 		}
-		for (int a = 0; a < 12; a++) {
-			try {
+		try {
+			for (int a = 0; a < 12; a++)
 				employees[a].join();
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			}
+			manager.join();
+		} catch (InterruptedException e){
+			e.printStackTrace();
 		}
 		
 		//Statistics
 		System.out.println("\n**********STATISTICS**********");
 		int totalWorking = 0;
 		int totalLunch = 0;
+		int totalMeeting = 0;
 		for (int a = 0; a < 12; a++) {
-			totalWorking += employees[a].getTimeWorked();
-			totalLunch += employees[a].getLunchDuration();
+			Employee emp = employees[a];
+			totalWorking += emp.getTimeWorked();
+			totalLunch += emp.getLunchDuration();
+			totalMeeting += emp.getTimeMeeting();
 		}
+		totalMeeting += manager.getTimeMeeting();
 		int hoursWorked = totalWorking / 60 + 104; //add 8 hours for manager and each developer
 		int minutesWorked = totalWorking % 60;
 		int hoursLunch = totalLunch / 60 + 1; //add one hour for manager's lunch
 		int minutesLunch = totalLunch % 60;
+		int hoursMeeting = totalMeeting / 60;
+		int minutesMeeting = totalMeeting % 60;
 		System.out.println("Total time of manager and developers working: " + hoursWorked + " hours " + minutesWorked + " minutes");
 		System.out.println("Total time of manager and developers at lunch: " + hoursLunch + " hours " + minutesLunch + " minutes");
+		System.out.println("Total time of manager and developers meeting: " + hoursMeeting + " hours " + minutesMeeting + " minutes");
 	}
 }

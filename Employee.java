@@ -38,6 +38,7 @@ public class Employee extends Thread {
 	private int arriveMinute;
 	private int lunchDuration;
 	private int timeWorked;
+	private int timeMeeting;
 	
 	public Employee(String name, Clock clock, ConferenceRoom confRoom, Manager manager, Employee teamLead) {
 		super( name );
@@ -48,6 +49,7 @@ public class Employee extends Thread {
 		this.gen = new Random();
 		this.standupBarrier = new CyclicBarrier( 4 );
 		this.standupLatch = new CountDownLatch( 1 );
+		this.timeMeeting = 0;
 	}
 
 	public void run() {
@@ -99,8 +101,10 @@ public class Employee extends Thread {
 		if( teamLead == null ) {
 			manager.reportForStandup(); // report to manager for daily project standup
 			morningStandup(); // hold team-based standup
+			timeMeeting += 30; // has 30 minutes of meetings in the morning
 		} else {
 			teamLead.reportForStandup(); // report to team lead for team-based standup
+			timeMeeting += 15; // has 15 minutes of meetings in the morning
 		}
 		busy = false;
 		notifyAll();
@@ -130,6 +134,7 @@ public class Employee extends Thread {
 					busy = true;
 					System.out.println( String.format( LEAD_QUESTION, clock.getTime(), this.getName() ) );
 					manager.askQuestion( this );
+					timeMeeting += 10; // team lead meets with manager for 10 minutes
 					busy = false;
 				} else { //developer has question
 					busy = true;
@@ -186,6 +191,8 @@ public class Employee extends Thread {
 			busy = true;
 			System.out.println( String.format( ASK_MANAGER, clock.getTime(), this.getName(), emp.getName() ) );
 			manager.askQuestion( this );
+			timeMeeting += 10; // team lead and developer both meet with manager for 10 minutes
+			emp.increaseTimeMeeting(); // team lead and developer both meet with manager for 10 minutes
 		}
 		busy = false;
 		notifyAll();
@@ -213,6 +220,14 @@ public class Employee extends Thread {
 	
 	public int getTimeWorked() {
 		return this.timeWorked;
+	}
+	
+	public void increaseTimeMeeting() {
+		this.timeMeeting += 10;
+	}
+	
+	public int getTimeMeeting() {
+		return this.timeMeeting;
 	}
 	
 }

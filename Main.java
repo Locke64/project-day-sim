@@ -52,11 +52,13 @@ public class Main {
 		int totalWorking = 0;
 		int totalLunch = 0;
 		int totalMeeting = 0;
+		int totalWaiting = 0;
 		for (int a = 0; a < 12; a++) {
 			Employee emp = employees[a];
 			totalWorking += emp.getTimeWorked();
 			totalLunch += emp.getLunchDuration();
 			totalMeeting += emp.getTimeMeeting();
+			totalWaiting += emp.getTimeWaiting();
 		}
 		totalMeeting += manager.getTimeMeeting();
 		int hoursWorked = totalWorking / 60 + 104; //add 8 hours for manager and each developer
@@ -65,8 +67,11 @@ public class Main {
 		int minutesLunch = totalLunch % 60;
 		int hoursMeeting = totalMeeting / 60;
 		int minutesMeeting = totalMeeting % 60;
-		System.out.println("Total time of manager and developers working: " + hoursWorked + " hours " + minutesWorked + " minutes");
-		System.out.println("Total time of manager and developers at lunch: " + hoursLunch + " hours " + minutesLunch + " minutes");
-		System.out.println("Total time of manager and developers meeting: " + hoursMeeting + " hours " + minutesMeeting + " minutes");
+		int hoursWaiting = totalWaiting / 60;
+		int minutesWaiting = totalWaiting % 60;
+		System.out.println("Total time of manager and developers working: " + hoursWorked + " hours " + minutesWorked + " minutes.");
+		System.out.println("Total time of manager and developers at lunch: " + hoursLunch + " hours " + minutesLunch + " minutes.");
+		System.out.println("Total time of manager and developers meeting: " + hoursMeeting + " hours " + minutesMeeting + " minutes.");
+		System.out.println("Total time waiting for the manager to be free to answer a question: " + hoursWaiting + " hours " + minutesWaiting + " minutes.");
 	}
 }

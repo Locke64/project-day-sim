@@ -16,6 +16,8 @@ public class Employee extends Thread {
 	private static final String STANDUP_START = "%s\tTeam lead %s begins the team standup meeting.";
 	private static final String STANDUP_END = "%s\tTeam lead %s ends the team standup meeting.";
 	
+	private static final int CHANCE_QUESTIONS = 200; // dividing 1 by this number is the chance that a developer or team lead will have a question each minute
+	
 	// random generator
 	Random gen;
 	
@@ -42,6 +44,7 @@ public class Employee extends Thread {
 	private int lunchDuration;
 	private int timeWorked;
 	private int timeMeeting;
+	private int timeWaiting;
 	
 	public Employee(String name, Clock clock, ConferenceRoom confRoom, Manager manager, Employee teamLead) {
 		super( name );
@@ -53,6 +56,7 @@ public class Employee extends Thread {
 		this.standupBarrier = new CyclicBarrier( 4 );
 		this.standupLatch = new CountDownLatch( 1 );
 		this.timeMeeting = 0;
+		this.timeWaiting = 0;
 	}
 
 	public void run() {
@@ -141,18 +145,20 @@ public class Employee extends Thread {
 	
 	private synchronized void askQuestions() {
 		if( !busy ) {
-			int askQuestion = gen.nextInt(200);
-			if (askQuestion == 1) {
+			int askQuestion = gen.nextInt(CHANCE_QUESTIONS);
+			if (askQuestion == 0) {
+				int managerWait;
 				if (teamLead == null) { //team lead has the question and goes to ask the manager
 					busy = true;
 					System.out.println( String.format( LEAD_QUESTION, clock.getTime(), this.getName() ) );
-					manager.askQuestion( this );
+					managerWait = manager.askQuestion( this );
+					timeWaiting += managerWait;
 					timeMeeting += 10; // team lead meets with manager for 10 minutes
 					busy = false;
 				} else { //developer has question
 					busy = true;
 					System.out.println( String.format( HAS_QUESTION, clock.getTime(), this.getName() ) );
-					teamLead.askQuestion( this );
+					timeWaiting += teamLead.askQuestion( this );
 					busy = false;
 				}
 			}
@@ -198,25 +204,20 @@ public class Employee extends Thread {
 	}
 	
 	// Employee emp asks its team lead a question.
-	public synchronized void askQuestion( Employee emp ) {
-		while( busy ) {
-			try {
-				wait();
-			} catch( InterruptedException e ) {
-				e.printStackTrace();
-			}
-		}
+	public int askQuestion( Employee emp ) {
+		int managerWait = 0;
+		getAttention();
 		if (gen.nextBoolean()) { //team lead can answer the question
 			System.out.println( String.format( LEAD_ANSWER, clock.getTime(), this.getName(), emp.getName() ) );
 		} else { //team lead couldn't answer the question and both go ask the manager
-			busy = true;
 			System.out.println( String.format( ASK_MANAGER, clock.getTime(), this.getName(), emp.getName() ) );
-			manager.askQuestion( this );
+			managerWait = manager.askQuestion( this );
 			timeMeeting += 10; // team lead and developer both meet with manager for 10 minutes
 			emp.increaseTimeMeeting(); // team lead and developer both meet with manager for 10 minutes
+			timeWaiting += managerWait;
 		}
-		busy = false;
-		notifyAll();
+		releaseAttention();
+		return managerWait;
 	}
 	
 	// Get the employee's attention (lock).
@@ -255,6 +256,10 @@ public class Employee extends Thread {
 	
 	public int getTimeMeeting() {
 		return this.timeMeeting;
+	}
+	
+	public int getTimeWaiting() {
+		return this.timeWaiting;
 	}
 	
 }

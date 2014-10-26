@@ -152,13 +152,16 @@ public class Manager extends Thread {
 	}
 	
 	// Employee emp asks manager a question
-	public synchronized void askQuestion( Employee emp ) {
+	public int askQuestion( Employee emp ) {
+		Clock.Time startWaiting = clock.getTime();
 		getAttention();
+		Clock.Time endWaiting = clock.getTime();
 		System.out.println( String.format( HEAR_QUESTION, clock.getTime(), emp.getName() ) );
 		clock.waitFor( 10 );
 		timeMeeting += 10;
 		System.out.println( String.format( ANSWER_QUESTION, clock.getTime(), emp.getName() ) );
 		releaseAttention();
+		return endWaiting.compareTo(startWaiting);
 	}
 	
 	// Get the manager's attention (lock).

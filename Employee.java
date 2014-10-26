@@ -63,6 +63,7 @@ public class Employee extends Thread {
 
 		// ask questions until manager goes to lunch (to avoid missing lunch while waiting for manager)
 		// this also prevents devs from asking team leads questions when they could be at lunch
+		//FIXME this is not the correct requirement. Employees may ask questions during their lunch break. They can still eat lunch while waiting for the manager to answer.
 		Clock.Time noon = Clock.timeOf( 12, 0 );
 		while( clock.getTime().compareTo( noon ) < 0 ) {
 			askQuestions();

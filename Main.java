@@ -38,8 +38,6 @@ public class Main {
 				e.printStackTrace();
 			}
 		}
-		//TODO: REMOVE
-		System.out.println("5:00\tManager departs after 8 hours and 0 minutes of work.");
 		
 		//Statistics
 		System.out.println("\n**********STATISTICS**********");

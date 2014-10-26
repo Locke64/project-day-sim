@@ -5,6 +5,7 @@ import java.util.concurrent.CyclicBarrier;
 public class Manager extends Thread {
 
 	private static final String ARRIVE = "%s\tManager arrives.";
+	private static final String DEPART = "%s\tManager departs after a day of %d hours and %d minutes work.";
 	private static final String STANDUP = "%s\tProject standup begins.";
 	private static final String START_LEAD_MEETING = "%s\tManager begins standup meeting with team leads.";
 	private static final String END_LEAD_MEETING = "%s\tManager ends standup meeting with team leads";
@@ -40,27 +41,29 @@ public class Manager extends Thread {
 		// team lead standup
 		morningStandup();
 		
-		//TODO make sure no questions are asked <10 mins before meeting
-		clock.waitUntil( new Clock.Time( 10, 0 ) );
+		//TODO finish answering one question if asked; the rest have to wait
+		clock.waitUntil( Clock.timeOf( 10, 0 ) );
 		morningExecMeeting();
 		
 		// lunch
-		//TODO make sure question if any is finished first, and make sure nobody asks a question when I want to go to lunch
-		clock.waitUntil( new Clock.Time( 12, 0 ) );
+		//TODO finish answering one question if asked; the rest have to wait
+		clock.waitUntil( Clock.timeOf( 12, 0 ) );
 		busy = true;
 		System.out.println( String.format( LUNCH_START, clock.getTime().toString() ) );
-		clock.waitUntil( new Clock.Time( 1, 0 ) );
+		clock.waitUntil( Clock.timeOf( 1, 0 ) );
 		System.out.println( String.format( LUNCH_END, clock.getTime().toString() ) );
 		busy = false;
 		
 		// afternoon executive meeting
-		//TODO make sure no questions are asked <10 mins before meeting
-		clock.waitUntil( new Clock.Time( 2, 0 ) );
+		//TODO finish answering one question if asked; the rest have to wait
+		clock.waitUntil( Clock.timeOf( 2, 0 ) );
 		afternoonExecMeeting();
 		
 		//TODO 4:00 meeting
 		
-		//TODO depart
+		Clock.Time departTime = Clock.timeOf( 5, 0 );
+		clock.waitUntil( departTime );
+		System.out.println( String.format( DEPART, departTime, 8, 0 ) ); //TODO calculate working time
 	}
 	
 	private synchronized void morningStandup() {
@@ -84,7 +87,7 @@ public class Manager extends Thread {
 	private synchronized void morningExecMeeting() {
 		busy = true;
 		System.out.println( String.format( ARRIVE_EXE_MEETING, clock.getTime().toString(), "morning" ) );
-		clock.waitUntil( new Clock.Time( 11, 0 ) );
+		clock.waitUntil( Clock.timeOf( 11, 0 ) );
 		System.out.println( String.format( LEAVE_EXE_MEETING, clock.getTime().toString(), "morning" ) );
 		busy = false;
 		notifyAll();
@@ -94,7 +97,7 @@ public class Manager extends Thread {
 	private synchronized void afternoonExecMeeting() {
 		busy = true;
 		System.out.println( String.format( ARRIVE_EXE_MEETING, clock.getTime().toString(), "afternoon" ) );
-		clock.waitUntil( new Clock.Time( 3, 0 ) );
+		clock.waitUntil( Clock.timeOf( 3, 0 ) );
 		System.out.println( String.format( LEAVE_EXE_MEETING, clock.getTime().toString(), "afternoon" ) );
 		busy = false;
 		notifyAll();

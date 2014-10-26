@@ -15,6 +15,7 @@ public class Manager extends Thread {
 	private static final String LUNCH_END = "%s\tManager finishes lunch.";
 	private static final String HEAR_QUESTION = "%s\tManager hears employee %s's question.";
 	private static final String ANSWER_QUESTION = "%s\tManager answers employee %s's question.";
+	private static final String DECLINE_QUESTION = "%s\tManager doesn't have time to answer employee %s's question today.";
 	
 	private Clock clock;
 	private int timeMeeting;
@@ -26,16 +27,27 @@ public class Manager extends Thread {
 	// this ensures the busy lock is obtained by the main Manager thread instead of any other Employee threads asking more questions
 	private boolean canAnswerQuestions = true;
 	
+	// yet another lock for questions. this is used to prevent the status meeting from starting until all questions are answered or declined.
+	private int pendingQuestions = 0;
+	
 	// barrier for morning standup
 	private CyclicBarrier standupBarrier;
 	
 	// latch for ending the morning standup
 	private CountDownLatch standupLatch;
 	
+	// barrier for project status meeting
+	private CyclicBarrier statusBarrier;
+	
+	// latch for ending the project status meeting
+	private CountDownLatch statusLatch;
+	
 	public Manager( Clock clock ) {
 		this.clock = clock;
 		this.standupBarrier = new CyclicBarrier( 4 );
 		this.standupLatch = new CountDownLatch( 1 );
+		this.statusBarrier = new CyclicBarrier( 13 );
+		this.statusLatch = new CountDownLatch( 1 );
 		this.timeMeeting = 0;
 	}
 	
@@ -60,7 +72,7 @@ public class Manager extends Thread {
 		clock.waitUntil( Clock.timeOf( 2, 0 ) );
 		afternoonExecMeeting();
 		
-		//TODO 4:00 meeting
+		// project status meeting
 		clock.waitUntil(Clock.timeOf(4,0));
 		afternoonMeeting();
 		
@@ -126,17 +138,22 @@ public class Manager extends Thread {
 		releaseAttention();
 	}
 	
+	// project status meeting
 	private synchronized void afternoonMeeting(){
-
-		while(clock.getTime().minute < 15 ){
-		busy = true;
+		// canAnswerQuestions is still true, so that the manager can explicitly decline answering them
+		getAttention( true ); // finish answering all questions. Any that start after 4:00 are declined.
+		try {
+			statusBarrier.await();
+		} catch( InterruptedException e ) {
+			e.printStackTrace();
+		} catch( BrokenBarrierException e ) {
+			e.printStackTrace();
+		}
 		System.out.println(clock.getTime().toString()+ "    Team starts 4 o'clock meeting");
-
 		clock.waitFor( 15 );
 		System.out.println(clock.getTime().toString() +"    Team ends 4 o'clock meeting");
-		busy = false;
-		notifyAll();
-		}
+		statusLatch.countDown();
+		releaseAttention();
 	}
 	
 	// report to the manager for the daily project standup meeting
@@ -151,19 +168,37 @@ public class Manager extends Thread {
 		}
 	}
 	
+	// report to the manager for the daily project status meeting
+	public void reportForStatus() {
+		try {
+			statusBarrier.await(); // report ready to begin
+			statusLatch.await(); // wait for meeting to end
+		} catch( InterruptedException e ) {
+			e.printStackTrace();
+		} catch( BrokenBarrierException e ) {
+			e.printStackTrace();
+		}
+	}
+	
 	public int getTimeMeeting() {
 		return this.timeMeeting;
 	}
 	
 	// Employee emp asks manager a question
 	public int askQuestion( Employee emp ) {
+		++pendingQuestions;
 		Clock.Time startWaiting = clock.getTime();
 		getAttention();
 		Clock.Time endWaiting = clock.getTime();
 		System.out.println( String.format( HEAR_QUESTION, clock.getTime(), emp.getName() ) );
-		clock.waitFor( 10 );
-		timeMeeting += 10;
-		System.out.println( String.format( ANSWER_QUESTION, clock.getTime(), emp.getName() ) );
+		if( clock.getTime().compareTo( Clock.timeOf( 4, 0 ) ) < 0 ) {
+			clock.waitFor( 10 );
+			timeMeeting += 10;
+			System.out.println( String.format( ANSWER_QUESTION, clock.getTime(), emp.getName() ) );
+		} else {
+			System.out.println( String.format( DECLINE_QUESTION, clock.getTime(), emp.getName() ) );
+		}
+		--pendingQuestions;
 		releaseAttention();
 		return endWaiting.compareTo(startWaiting);
 	}
@@ -174,8 +209,9 @@ public class Manager extends Thread {
 	}
 	
 	// Get the manager's attention (lock). If override is false, the manager's attention may be taken elsewhere first.
+	// If override is true and it's time for the status meeting, this will wait until all questions are answered or declined.
 	private synchronized void getAttention( boolean override ) {
-		while( busy || !(override || canAnswerQuestions) ) {
+		while( busy || !(override || canAnswerQuestions) || (override && clock.getTime().compareTo( Clock.timeOf( 4, 0 ) ) >= 0 && pendingQuestions > 0 ) ) {
 			try {
 				wait();
 			} catch( InterruptedException e ) {

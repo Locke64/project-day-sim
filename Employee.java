@@ -11,7 +11,7 @@ public class Employee extends Thread {
 	private static final String DEPART = "%s\tEmployee %s departs after a day of %d hours and %d minutes work.";
 	private static final String HAS_QUESTION = "%s\tEmployee %s has a question.";
 	private static final String LEAD_QUESTION = "%s\tTeam lead %s has a question and goes to ask the manager.";
-	private static final String LEAD_ANSWER = "%s\tTeam lead %s answered employee %s's question.";
+	private static final String LEAD_ANSWER = "%s\tTeam lead %s answers employee %s's question.";
 	private static final String ASK_MANAGER = "%s\tTeam lead %s couldn't answer employee %s's question so both go ask the manager.";
 	private static final String STANDUP_START = "%s\tTeam lead %s begins the team standup meeting.";
 	private static final String STANDUP_END = "%s\tTeam lead %s ends the team standup meeting.";
@@ -26,6 +26,9 @@ public class Employee extends Thread {
 	
 	// another lock for asking questions, for when the employee needs to go to a meeting or to lunch
 	private boolean canAnswerQuestions = true;
+	
+	// yet another lock for questions. this is used to prevent the status meeting from starting until all questions are answered or declined.
+	private int pendingQuestions = 0;
 	
 	// barrier for morning standup
 	private CyclicBarrier standupBarrier;
@@ -72,7 +75,7 @@ public class Employee extends Thread {
 		// go to daily standups
 		doStandups();
 		
-		int lunchHour = gen.nextInt( 6 ) + 9; // generate random hour from 9am and 2pm
+		int lunchHour = gen.nextInt( 3 ) + 9; // generate random hour from 9am and 12pm
 		if (lunchHour > 12)
 			lunchHour -= 12;
 		int lunchMinute = gen.nextInt( 60 );
@@ -80,9 +83,6 @@ public class Employee extends Thread {
 
 		// ask questions until manager goes to lunch (to avoid missing lunch while waiting for manager)
 		// this also prevents devs from asking team leads questions when they could be at lunch
-		//FIXME this is not the correct requirement. Employees may ask questions during their lunch break. They can still eat lunch while waiting for the manager to answer.
-		
-		//Clock.Time noon = Clock.timeOf( 12, 0 );
 		while( clock.getTime().compareTo( lunchStartTime ) < 0 ) {
 			askQuestions();
 			clock.waitFor( 1 );
@@ -93,11 +93,12 @@ public class Employee extends Thread {
 		
 		Clock.Time statusMeetingTime = Clock.timeOf( 4, 0 );
 		while( clock.getTime().compareTo( statusMeetingTime ) < 0 ) {
-			clock.waitFor( 1 );
 			askQuestions();
+			clock.waitFor( 1 );
 		}
 		
-		//TODO go to project status meeting
+		// go to project status meeting
+		doStatusMeeting();
 
 		// when can I leave? -between 4:30 and 5:00, after at least 8 hours of work
 		int earliestDeparture = arriveMinute + lunchDuration;
@@ -192,6 +193,13 @@ public class Employee extends Thread {
 		releaseAttention();
 	}
 
+	private synchronized void doStatusMeeting() {
+		getAttention( true );
+		manager.reportForStatus(); // report to manager for daily project status
+		timeMeeting += 15; // has 15 minutes of meetings in the morning
+		releaseAttention();
+	}
+
 	public void reportForStandup() {
 		try {
 			standupBarrier.await(); // report ready to begin
@@ -205,6 +213,7 @@ public class Employee extends Thread {
 	
 	// Employee emp asks its team lead a question.
 	public int askQuestion( Employee emp ) {
+		++pendingQuestions;
 		int managerWait = 0;
 		getAttention();
 		if (gen.nextBoolean()) { //team lead can answer the question
@@ -216,6 +225,7 @@ public class Employee extends Thread {
 			emp.increaseTimeMeeting(); // team lead and developer both meet with manager for 10 minutes
 			timeWaiting += managerWait;
 		}
+		--pendingQuestions;
 		releaseAttention();
 		return managerWait;
 	}
@@ -226,8 +236,9 @@ public class Employee extends Thread {
 	}
 		
 	// Get the employee's attention (lock). If override is false, the employee's attention may be taken elsewhere first.
+	// If override is true and it's time for the status meeting, this will wait until all questions are answered or declined.
 	private synchronized void getAttention( boolean override ) {
-		while( busy || !(override || canAnswerQuestions) ) {
+		while( busy || !(override || canAnswerQuestions) || (override && clock.getTime().compareTo( Clock.timeOf( 4, 0 ) ) >= 0 && pendingQuestions > 0 ) ) {
 			try {
 				wait();
 			} catch( InterruptedException e ) {

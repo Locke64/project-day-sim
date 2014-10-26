@@ -149,9 +149,10 @@ public class Manager extends Thread {
 		} catch( BrokenBarrierException e ) {
 			e.printStackTrace();
 		}
-		System.out.println(clock.getTime().toString()+ "    Team starts 4 o'clock meeting");
+		System.out.println(clock.getTime().toString()+ "\tTeam starts 4 o'clock meeting");
 		clock.waitFor( 15 );
-		System.out.println(clock.getTime().toString() +"    Team ends 4 o'clock meeting");
+		System.out.println(clock.getTime().toString() +"\tTeam ends 4 o'clock meeting");
+		timeMeeting += 15;
 		statusLatch.countDown();
 		releaseAttention();
 	}

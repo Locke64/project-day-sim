@@ -22,6 +22,9 @@ public class Employee extends Thread {
 	// lock for asking questions
 	private boolean busy = true;
 	
+	// another lock for asking questions, for when the employee needs to go to a meeting or to lunch
+	private boolean canAnswerQuestions = true;
+	
 	// barrier for morning standup
 	private CyclicBarrier standupBarrier;
 	
@@ -64,18 +67,25 @@ public class Employee extends Thread {
 		
 		// go to daily standups
 		doStandups();
+		
+		int lunchHour = gen.nextInt( 6 ) + 9; // generate random hour from 9am and 2pm
+		if (lunchHour > 12)
+			lunchHour -= 12;
+		int lunchMinute = gen.nextInt( 60 );
+		Clock.Time lunchStartTime = Clock.timeOf( lunchHour, lunchMinute );
 
 		// ask questions until manager goes to lunch (to avoid missing lunch while waiting for manager)
 		// this also prevents devs from asking team leads questions when they could be at lunch
 		//FIXME this is not the correct requirement. Employees may ask questions during their lunch break. They can still eat lunch while waiting for the manager to answer.
-		Clock.Time noon = Clock.timeOf( 12, 0 );
-		while( clock.getTime().compareTo( noon ) < 0 ) {
+		
+		//Clock.Time noon = Clock.timeOf( 12, 0 );
+		while( clock.getTime().compareTo( lunchStartTime ) < 0 ) {
 			askQuestions();
 			clock.waitFor( 1 );
 		}
 		
 		// go to lunch
-		lunch();
+		lunch( lunchStartTime );
 		
 		Clock.Time statusMeetingTime = Clock.timeOf( 4, 0 );
 		while( clock.getTime().compareTo( statusMeetingTime ) < 0 ) {
@@ -149,23 +159,31 @@ public class Employee extends Thread {
 		}
 	}
 	
-	private synchronized void lunch() {
+	private synchronized void lunch( Clock.Time lunchStartTime ) {
 		//TODO wait until not busy
 		// then, random between NOW and 30, instead of 0 and 30
-		int lunchStartMinute = gen.nextInt( 30 );
-		Clock.Time lunchStartTime = Clock.timeOf( 12, lunchStartMinute );
 		clock.waitUntil( lunchStartTime );
-		busy = true;
+		canAnswerQuestions = false;
+		getAttention( true ); // finish answering a question
+		lunchStartTime = clock.getTime();
 		System.out.println( String.format( LUNCH_START, lunchStartTime, getName() ) );
-		int lunchEndMinute = lunchStartMinute + 30;
+		int lunchEndHour = lunchStartTime.hour;
+		int lunchEndMinute = lunchStartTime.minute + 30;
 		lunchEndMinute += gen.nextInt( 30 - arriveMinute );
-		lunchEndMinute = Math.min( lunchEndMinute, 59 );
-		lunchDuration = lunchEndMinute - lunchStartMinute;
-		Clock.Time lunchEndTime = Clock.timeOf( 12, lunchEndMinute );
+		if (lunchEndMinute > 59) {
+			lunchEndMinute -= 60;
+			lunchEndHour += 1;
+		}
+		if (lunchEndHour > 12)
+			lunchEndHour -= 12;
+		lunchDuration = lunchEndMinute - lunchStartTime.minute;
+		if (lunchDuration < 1)
+			lunchDuration += 60;
+		Clock.Time lunchEndTime = Clock.timeOf( lunchEndHour, lunchEndMinute );
 		clock.waitUntil( lunchEndTime );
 		System.out.println( String.format( LUNCH_END, lunchEndTime, getName() ) );
-		busy = false;
-		notifyAll();
+		canAnswerQuestions = true;
+		releaseAttention();
 	}
 
 	public void reportForStandup() {
@@ -201,8 +219,14 @@ public class Employee extends Thread {
 		notifyAll();
 	}
 	
+	// Get the employee's attention (lock).
 	public synchronized void getAttention() {
-		while( busy ) {
+		getAttention( false );
+	}
+		
+	// Get the employee's attention (lock). If override is false, the employee's attention may be taken elsewhere first.
+	private synchronized void getAttention( boolean override ) {
+		while( busy || !(override || canAnswerQuestions) ) {
 			try {
 				wait();
 			} catch( InterruptedException e ) {
@@ -211,7 +235,7 @@ public class Employee extends Thread {
 		}
 		busy = true;
 	}
-	
+		
 	public synchronized void releaseAttention() {
 		busy = false;
 		notifyAll();

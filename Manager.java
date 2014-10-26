@@ -17,7 +17,7 @@ public class Manager extends Thread {
 	private static final String ANSWER_QUESTION = "%s\tManager answers employee %s's question.";
 	
 	private Clock clock;
-	private int workTime = 0;
+	private int timeMeeting;
 	
 	// lock for asking questions
 	private boolean busy = false;
@@ -32,6 +32,7 @@ public class Manager extends Thread {
 		this.clock = clock;
 		this.standupBarrier = new CyclicBarrier( 4 );
 		this.standupLatch = new CountDownLatch( 1 );
+		this.timeMeeting = 0;
 	}
 	
 	public void run() {
@@ -77,6 +78,7 @@ public class Manager extends Thread {
 		} catch( BrokenBarrierException e ) {
 			e.printStackTrace();
 		}
+		timeMeeting += 15;
 		System.out.println( String.format( START_LEAD_MEETING, clock.getTime().toString() ) );
 		clock.waitFor( 15 );
 		System.out.println( String.format( END_LEAD_MEETING, clock.getTime().toString() ) );
@@ -88,6 +90,7 @@ public class Manager extends Thread {
 	// morning executive meeting
 	private synchronized void morningExecMeeting() {
 		busy = true;
+		timeMeeting += 60;
 		System.out.println( String.format( ARRIVE_EXE_MEETING, clock.getTime().toString(), "morning" ) );
 		clock.waitUntil( Clock.timeOf( 11, 0 ) );
 		System.out.println( String.format( LEAVE_EXE_MEETING, clock.getTime().toString(), "morning" ) );
@@ -98,6 +101,7 @@ public class Manager extends Thread {
 	// afternoon executive meeting
 	private synchronized void afternoonExecMeeting() {
 		busy = true;
+		timeMeeting += 60;
 		System.out.println( String.format( ARRIVE_EXE_MEETING, clock.getTime().toString(), "afternoon" ) );
 		clock.waitUntil( Clock.timeOf( 3, 0 ) );
 		System.out.println( String.format( LEAVE_EXE_MEETING, clock.getTime().toString(), "afternoon" ) );
@@ -131,6 +135,10 @@ public class Manager extends Thread {
 	}
 	
 	// Employee emp asks manager a question
+	
+	public int getTimeMeeting() {
+		return this.timeMeeting;
+	}
 	public synchronized void askQuestion( Employee emp ) {
 		while( busy ) {
 			try {

@@ -103,9 +103,11 @@ public class Manager extends Thread {
 	private synchronized void morningExecMeeting() {
 		canAnswerQuestions = false;
 		getAttention( true ); // finish answering a question
+		Clock.Time startMeeting = clock.getTime();
 		System.out.println( String.format( ARRIVE_EXE_MEETING, clock.getTime().toString(), "morning" ) );
 		clock.waitUntil( Clock.timeOf( 11, 0 ) );
-		timeMeeting += 60; //TODO calculate difference
+		Clock.Time endMeeting = clock.getTime();
+		timeMeeting += endMeeting.compareTo(startMeeting);
 		System.out.println( String.format( LEAVE_EXE_MEETING, clock.getTime().toString(), "morning" ) );
 		canAnswerQuestions = true;
 		releaseAttention();
@@ -126,9 +128,11 @@ public class Manager extends Thread {
 	private synchronized void afternoonExecMeeting() {
 		canAnswerQuestions = false;
 		getAttention( true ); // finish answering a question
+		Clock.Time startMeeting = clock.getTime();
 		System.out.println( String.format( ARRIVE_EXE_MEETING, clock.getTime().toString(), "afternoon" ) );
 		clock.waitUntil( Clock.timeOf( 3, 0 ) );
-		timeMeeting += 60; //TODO calculate difference
+		Clock.Time endMeeting = clock.getTime();
+		timeMeeting += endMeeting.compareTo(startMeeting);
 		System.out.println( String.format( LEAVE_EXE_MEETING, clock.getTime().toString(), "afternoon" ) );
 		canAnswerQuestions = true;
 		releaseAttention();
@@ -145,9 +149,10 @@ public class Manager extends Thread {
 		} catch( BrokenBarrierException e ) {
 			e.printStackTrace();
 		}
-		System.out.println(clock.getTime().toString()+ "    Team starts 4 o'clock meeting");
+		System.out.println(clock.getTime().toString()+ "\tTeam starts 4 o'clock meeting");
 		clock.waitFor( 15 );
-		System.out.println(clock.getTime().toString() +"    Team ends 4 o'clock meeting");
+		System.out.println(clock.getTime().toString() +"\tTeam ends 4 o'clock meeting");
+		timeMeeting += 15;
 		statusLatch.countDown();
 		releaseAttention();
 	}

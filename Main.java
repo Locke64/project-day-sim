@@ -3,12 +3,10 @@ import java.util.concurrent.CountDownLatch;
 public class Main {
 
 	public static void main(String[] args) {
-		// create latches and barriers
-		CountDownLatch startLatch = new CountDownLatch(1);
 	
 		// create actors
 		Clock clock = new Clock();
-		Manager manager = new Manager(clock, startLatch);
+		Manager manager = new Manager(clock);
 		Employee[] employees = new Employee[12];
 		Employee[] teamLeads = new Employee[3];
 		int counter = 0;
@@ -27,11 +25,11 @@ public class Main {
 		}
 		
 		// start actors
+		clock.start();
 		manager.start();
 		for (int a = 0; a < 12; a++) {
 			employees[a].start();
 		}
-		startLatch.countDown();
 		for (int a = 0; a < 12; a++) {
 			try {
 				employees[a].join();

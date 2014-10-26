@@ -12,29 +12,36 @@ public class Employee extends Thread {
 	private static final String LEAD_ANSWER = "%s\tTeam lead %s answered employee %s question.";
 	private static final String ASK_MANAGER = "%s\tTeam lead %s couldn't answer employee %s question so both go ask the manager.";
 	
-	private String name;
+	// random generator
+	Random gen;
+	
+	// lock for asking questions
+	private boolean busy = false;
+	
+	// collaborators
 	private Clock clock;
 	private Manager manager;
 	private Employee teamLead;
 	
+	// stats
 	private int arriveMinute;
 	private int lunchDuration;
 	private int timeWorked;
 	
 	public Employee(String name, Clock clock, Manager manager, Employee teamLead) {
-		this.name = name;
+		super( name );
 		this.clock = clock;
 		this.manager = manager;
 		this.teamLead = teamLead;
+		this.gen = new Random();
 	}
 
 	public void run() {
-		Random gen = new Random();		
 		// arrive between 8:00 and 8:30
 		arriveMinute = gen.nextInt( 30 ); //TODO 31
 		Clock.Time arriveTime = Clock.timeOf( 8, arriveMinute );
-		clock.nextTime( arriveTime );
-		System.out.println( String.format( ARRIVE, arriveTime, name ) );
+		clock.waitUntil( arriveTime );
+		System.out.println( String.format( ARRIVE, arriveTime, getName() ) );
 		
 		//TODO go to meetings
 		
@@ -43,23 +50,25 @@ public class Employee extends Thread {
 		Clock.Time lunchStartTime = Clock.timeOf( 12, lunchStartMinute );
 
 		// ask questions until lunch
-		while( clock.nextTime().compareTo( lunchStartTime ) < 0 ) {
-			askQuestions(gen);
+		while( clock.getTime().compareTo( lunchStartTime ) < 0 ) {
+			clock.waitFor( 1 );
+			askQuestions();
 		}
 		
 		// go to lunch
-		System.out.println( String.format( LUNCH_START, lunchStartTime, name ) );
+		System.out.println( String.format( LUNCH_START, lunchStartTime, getName() ) );
 		int lunchEndMinute = lunchStartMinute + 30;
 		lunchEndMinute += gen.nextInt( 30 - arriveMinute );
 		lunchEndMinute = Math.min( lunchEndMinute, 59 );
 		lunchDuration = lunchEndMinute - lunchStartMinute;
 		Clock.Time lunchEndTime = Clock.timeOf( 12, lunchEndMinute );
-		clock.nextTime( lunchEndTime );
-		System.out.println( String.format( LUNCH_END, lunchEndTime, name ) );
+		clock.waitUntil( lunchEndTime );
+		System.out.println( String.format( LUNCH_END, lunchEndTime, getName() ) );
 		
 		Clock.Time statusMeetingTime = Clock.timeOf( 4, 0 );
-		while( clock.nextTime().compareTo( statusMeetingTime ) < 0 ) {
-			askQuestions(gen);
+		while( clock.getTime().compareTo( statusMeetingTime ) < 0 ) {
+			clock.waitFor( 1 );
+			askQuestions();
 		}
 		
 		//TODO go to project status meeting
@@ -68,34 +77,46 @@ public class Employee extends Thread {
 		int earliestDeparture = arriveMinute + lunchDuration;
 		int departMinute = gen.nextInt( 60 - earliestDeparture ) + earliestDeparture;
 		Clock.Time departTime = Clock.timeOf( 4, departMinute );
-		clock.nextTime( departTime );
+		clock.waitUntil( departTime );
 		
 		// assuming I won't ask questions after the project status meeting?
 		
 		// leave
 		timeWorked = departMinute - arriveMinute - lunchDuration;
-		System.out.println( String.format( DEPART, departTime.toString(), name, 8, timeWorked ) );
-		clock.nextTime( Clock.timeOf( 5, 0 ) ); // let everyone else go too
+		System.out.println( String.format( DEPART, departTime.toString(), getName(), 8, timeWorked ) );
 	}
 	
-	private void askQuestions(Random gen) {
-		int askQuestion = gen.nextInt(100);
+	private void askQuestions() {
+		int askQuestion = gen.nextInt(200);
 		if (askQuestion == 1) {
 			if (teamLead == null) { //team lead has the question and goes to ask the manager
-				System.out.println( String.format( LEAD_QUESTION, clock.getTime(), this.getEmployeeName() ) );
+				System.out.println( String.format( LEAD_QUESTION, clock.getTime(), this.getName() ) );
+				manager.askQuestion( this );
 			} else { //developer has question
-				System.out.println( String.format( HAS_QUESTION, clock.getTime(), this.getEmployeeName() ) );
-				if (gen.nextBoolean()) { //team lead can answer the question
-					System.out.println( String.format( LEAD_ANSWER, clock.getTime(), teamLead.getEmployeeName(), this.getEmployeeName() ) );
-				} else { //team lead couldn't answer the question and both go ask the manager
-					System.out.println( String.format( ASK_MANAGER, clock.getTime(), teamLead.getEmployeeName(), this.getEmployeeName() ) );
-				}
+				System.out.println( String.format( HAS_QUESTION, clock.getTime(), this.getName() ) );
+				teamLead.askQuestion( this );
 			}
 		}
 	}
 	
-	public String getEmployeeName() {
-		return this.name;
+	// Employee emp asks its team lead a question.
+	private synchronized void askQuestion( Employee emp ) {
+		while( busy ) {
+			try {
+				wait();
+			} catch( InterruptedException e ) {
+				e.printStackTrace();
+			}
+		}
+		if (gen.nextBoolean()) { //team lead can answer the question
+			System.out.println( String.format( LEAD_ANSWER, clock.getTime(), this.getName(), emp.getName() ) );
+		} else { //team lead couldn't answer the question and both go ask the manager
+			busy = true;
+			System.out.println( String.format( ASK_MANAGER, clock.getTime(), this.getName(), emp.getName() ) );
+			manager.askQuestion( this );
+		}
+		busy = false;
+		notifyAll();
 	}
 	
 	public int getLunchDuration() {

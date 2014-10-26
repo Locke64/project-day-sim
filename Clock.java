@@ -1,10 +1,11 @@
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
+import java.util.Collections;
 import java.util.List;
 import java.util.ArrayList;
 
-public class Clock {
+public class Clock extends Thread {
 
 	public static final int DAY_START_HOUR = 8;
 	public static final int DAY_START_MINUTE = 0;
@@ -18,6 +19,9 @@ public class Clock {
 	
 	// Barrier that waits for each thread to ask for the time before incrementing the time
 	private CyclicBarrier incrementBarrier;
+	
+	// List of timers
+	private List<CountDownLatch> timers = Collections.synchronizedList( new ArrayList<CountDownLatch>() );
 	
 	// Factory method for convenient creation of Time objects
 	public static Time timeOf( int hr, int mn ) {
@@ -34,6 +38,17 @@ public class Clock {
 			});
 	}
 	
+	// Runs the clock - one siumulated minute every 10 real milliseconds
+	public void run() {
+		while( getTime().compareTo( DAY_END ) < 0 ) {
+			incrementTime();
+			synchronized( timers ) {
+				for( CountDownLatch timer : timers )
+					timer.countDown();
+			}
+		}
+	}
+	
 	// Adds one minute to the simulated time
 	private synchronized void incrementTime() {
 		try {
@@ -47,6 +62,22 @@ public class Clock {
 	// Gets the current simulated time
 	public synchronized Time getTime() {
 		return time.copy();
+	}
+	
+	// wait for given number of minutes
+	public void waitFor( int minutes ) {
+		CountDownLatch timer = new CountDownLatch( minutes );
+		timers.add( timer );
+		try {
+			timer.await();
+		} catch( InterruptedException e ) {
+			e.printStackTrace();
+		}
+	}
+	
+	// wait until the given time
+	public void waitUntil( Time until ) {
+		waitFor( until.compareTo( getTime() ) );
 	}
 	
 	// Gets the next time increment once it happens (i.e. once all threads have asked for it)

@@ -9,14 +9,14 @@ public class Employee extends Thread {
 	private static final String DEPART = "%s\tEmployee %s departs after a day of %d hours and %d minutes work.";
 	private static final String HAS_QUESTION = "%s\tEmployee %s has a question.";
 	private static final String LEAD_QUESTION = "%s\tTeam lead %s has a question and goes to ask the manager.";
-	private static final String LEAD_ANSWER = "%s\tTeam lead %s answered employee %s question.";
-	private static final String ASK_MANAGER = "%s\tTeam lead %s couldn't answer employee %s question so both go ask the manager.";
+	private static final String LEAD_ANSWER = "%s\tTeam lead %s answered employee %s's question.";
+	private static final String ASK_MANAGER = "%s\tTeam lead %s couldn't answer employee %s's question so both go ask the manager.";
 	
 	// random generator
 	Random gen;
 	
 	// lock for asking questions
-	private boolean busy = false;
+	private boolean busy = true;
 	
 	// collaborators
 	private Clock clock;
@@ -42,20 +42,26 @@ public class Employee extends Thread {
 		Clock.Time arriveTime = Clock.timeOf( 8, arriveMinute );
 		clock.waitUntil( arriveTime );
 		System.out.println( String.format( ARRIVE, arriveTime, getName() ) );
+		busy = false;
 		
-		//TODO go to meetings
+		// go to daily standups
+		if( teamLead == null ) { // I'm a team lead
+			doStandup();
+		}
 		
 		// when's lunch?
-		int lunchStartMinute = gen.nextInt( 30 );
-		Clock.Time lunchStartTime = Clock.timeOf( 12, lunchStartMinute );
 
-		// ask questions until lunch
-		while( clock.getTime().compareTo( lunchStartTime ) < 0 ) {
-			clock.waitFor( 1 );
+		// ask questions until manager goes to lunch (to avoid missing lunch while waiting for manager)
+		// this also prevents devs from asking team leads questions when they could be at lunch
+		Clock.Time noon = Clock.timeOf( 12, 0 );
+		while( clock.getTime().compareTo( noon ) < 0 ) {
 			askQuestions();
+			clock.waitFor( 1 );
 		}
 		
 		// go to lunch
+		int lunchStartMinute = gen.nextInt( 30 );
+		Clock.Time lunchStartTime = Clock.timeOf( 12, lunchStartMinute );
 		System.out.println( String.format( LUNCH_START, lunchStartTime, getName() ) );
 		int lunchEndMinute = lunchStartMinute + 30;
 		lunchEndMinute += gen.nextInt( 30 - arriveMinute );
@@ -86,15 +92,29 @@ public class Employee extends Thread {
 		System.out.println( String.format( DEPART, departTime.toString(), getName(), 8, timeWorked ) );
 	}
 	
-	private void askQuestions() {
-		int askQuestion = gen.nextInt(200);
-		if (askQuestion == 1) {
-			if (teamLead == null) { //team lead has the question and goes to ask the manager
-				System.out.println( String.format( LEAD_QUESTION, clock.getTime(), this.getName() ) );
-				manager.askQuestion( this );
-			} else { //developer has question
-				System.out.println( String.format( HAS_QUESTION, clock.getTime(), this.getName() ) );
-				teamLead.askQuestion( this );
+	private synchronized void doStandup() {
+		busy = true;
+		manager.morningStandUp();
+		clock.waitFor( 15 );
+		busy = false;
+		notifyAll();
+	}
+	
+	private synchronized void askQuestions() {
+		if( !busy ) {
+			int askQuestion = gen.nextInt(200);
+			if (askQuestion == 1) {
+				if (teamLead == null) { //team lead has the question and goes to ask the manager
+					busy = true;
+					System.out.println( String.format( LEAD_QUESTION, clock.getTime(), this.getName() ) );
+					manager.askQuestion( this );
+					busy = false;
+				} else { //developer has question
+					busy = true;
+					System.out.println( String.format( HAS_QUESTION, clock.getTime(), this.getName() ) );
+					teamLead.askQuestion( this );
+					busy = false;
+				}
 			}
 		}
 	}
@@ -115,6 +135,22 @@ public class Employee extends Thread {
 			System.out.println( String.format( ASK_MANAGER, clock.getTime(), this.getName(), emp.getName() ) );
 			manager.askQuestion( this );
 		}
+		busy = false;
+		notifyAll();
+	}
+	
+	private synchronized void getAttention() {
+		while( busy ) {
+			try {
+				wait();
+			} catch( InterruptedException e ) {
+				e.printStackTrace();
+			}
+		}
+		busy = true;
+	}
+	
+	private synchronized void releaseAttention() {
 		busy = false;
 		notifyAll();
 	}

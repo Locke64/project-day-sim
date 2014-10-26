@@ -59,6 +59,8 @@ public class Manager extends Thread {
 		afternoonExecMeeting();
 		
 		//TODO 4:00 meeting
+		clock.waitUntil(Clock.timeOf(4,0));
+		afternoonMeeting();
 		
 		Clock.Time departTime = Clock.timeOf( 5, 0 );
 		clock.waitUntil( departTime );
@@ -74,9 +76,9 @@ public class Manager extends Thread {
 		} catch( BrokenBarrierException e ) {
 			e.printStackTrace();
 		}
+		timeMeeting += 15;
 		System.out.println( String.format( START_LEAD_MEETING, clock.getTime().toString() ) );
 		clock.waitFor( 15 );
-		timeMeeting += 15;
 		System.out.println( String.format( END_LEAD_MEETING, clock.getTime().toString() ) );
 		standupLatch.countDown();
 		releaseAttention();
@@ -88,7 +90,7 @@ public class Manager extends Thread {
 		getAttention( true ); // finish answering a question
 		System.out.println( String.format( ARRIVE_EXE_MEETING, clock.getTime().toString(), "morning" ) );
 		clock.waitUntil( Clock.timeOf( 11, 0 ) );
-		timeMeeting += 60;
+		timeMeeting += 60; //TODO calculate difference
 		System.out.println( String.format( LEAVE_EXE_MEETING, clock.getTime().toString(), "morning" ) );
 		canAnswerQuestions = true;
 		releaseAttention();
@@ -111,10 +113,23 @@ public class Manager extends Thread {
 		getAttention( true ); // finish answering a question
 		System.out.println( String.format( ARRIVE_EXE_MEETING, clock.getTime().toString(), "afternoon" ) );
 		clock.waitUntil( Clock.timeOf( 3, 0 ) );
-		timeMeeting += 60;
+		timeMeeting += 60; //TODO calculate difference
 		System.out.println( String.format( LEAVE_EXE_MEETING, clock.getTime().toString(), "afternoon" ) );
 		canAnswerQuestions = true;
 		releaseAttention();
+	}
+	
+	private synchronized void afternoonMeeting(){
+
+		while(clock.getTime().minute < 15 ){
+		busy = true;
+		System.out.println(clock.getTime().toString()+ "    Team starts 4 o'clock meeting");
+
+		clock.waitFor( 15 );
+		System.out.println(clock.getTime().toString() +"    Team ends 4 o'clock meeting");
+		busy = false;
+		notifyAll();
+		}
 	}
 	
 	// report to the manager for the daily project standup meeting
@@ -127,6 +142,10 @@ public class Manager extends Thread {
 		} catch( BrokenBarrierException e ) {
 			e.printStackTrace();
 		}
+	}
+	
+	public int getTimeMeeting() {
+		return this.timeMeeting;
 	}
 	
 	// Employee emp asks manager a question
@@ -159,9 +178,5 @@ public class Manager extends Thread {
 	public synchronized void releaseAttention() {
 		busy = false;
 		notifyAll();
-	}
-	
-	public int getTimeMeeting() {
-		return this.timeMeeting;
 	}
 }

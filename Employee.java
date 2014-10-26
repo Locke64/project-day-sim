@@ -56,6 +56,8 @@ public class Employee extends Thread {
 	}
 
 	public void run() {
+		clock.clockIn();
+		
 		// arrive between 8:00 and 8:30
 		arriveMinute = gen.nextInt( 30 ); //TODO 31
 		Clock.Time arriveTime = Clock.timeOf( 8, arriveMinute );
@@ -104,6 +106,7 @@ public class Employee extends Thread {
 		// leave
 		timeWorked = departMinute - arriveMinute - lunchDuration;
 		System.out.println( String.format( DEPART, departTime, getName(), 8, timeWorked ) );
+		clock.clockOut();
 	}
 
 	private synchronized void doStandups() {

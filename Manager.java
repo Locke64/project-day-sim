@@ -17,28 +17,57 @@ public class Manager extends Thread {
 		this.clock = clock;
 		this.startLatch = startLatch;
 	}
+	//When he arrives at 8:00 each day, the manager engages in daily planning 
+	//activites and then waits (doing administrivia) until all the team leads 
+	//arrive at his office. When all the leads have arrived, they knock
+	//on the manager's door and enter for their daily 15 minute standup meeting.
+	public void morningStandUp(){
+		startLatch.countDown();
+		System.out.println( String.format( ARRIVE, clock.getTime().toString() ) );
+				
+//		int timeBefore = Integer.valueOf(clock.getTime().toString());
+		try{
+			startLatch.await();
+		}
+		catch(InterruptedException e){
+			e.printStackTrace();
+		}
+		System.out.println( String.format( ARRIVE_EXE_MEETING, clock.getTime().toString(), "morning" ) );
+		
 
+//		int timeAfter = Integer.valueOf(clock.getTime().toString());
+		
+
+//		int timeWorked = (timeAfter - timeBefore);
+
+		//----elapse 15 min after executive meeting is initiated----
+		clock.waitFor(new Clock.Time(clock.getTime().hour,clock.getTime().minute + 15));
+		System.out.println( String.format( LEAVE_EXE_MEETING, clock.getTime().toString(), "morning" ) );
+		
+		
+		
+	}
+	
 	public void run() {
+		morningStandUp();
+		/*
 		try {
 			// wait until all actors are ready
 			startLatch.await();
 			
 			// arrive at 8:00
-			System.out.println( String.format( ARRIVE, clock.getTime().toString() ) );
-			clock.nextTime( new Clock.Time( 10, 0 ) );
-			System.out.println( String.format( ARRIVE_EXE_MEETING, clock.getTime().toString(), "morning" ) );
-			clock.nextTime( new Clock.Time( 11, 0 ) );
-			System.out.println( String.format( LEAVE_EXE_MEETING, clock.getTime().toString(), "morning" ) );
-			clock.nextTime( new Clock.Time( 12, 0 ) );
+				
+			
 			System.out.println( String.format( LUNCH_START, clock.getTime().toString() ) );
-			clock.nextTime( new Clock.Time( 1, 0 ) );
+			clock.waitFor( new Clock.Time( 1, 0 ) );
 			System.out.println( String.format( LUNCH_END, clock.getTime().toString() ) );
-			clock.nextTime( new Clock.Time( 2, 0 ) );
+			clock.waitFor( new Clock.Time( 2, 0 ) );
 			System.out.println( String.format( ARRIVE_EXE_MEETING, clock.getTime().toString(), "afternoon" ) );
-			clock.nextTime( new Clock.Time( 3, 0 ) );
+			clock.waitFor( new Clock.Time( 3, 0 ) );
 			System.out.println( String.format( LEAVE_EXE_MEETING, clock.getTime().toString(), "afternoon" ) );
 		} catch( InterruptedException e ) {
 			e.printStackTrace();
-		}
+		}*/
 	}
+	
 }

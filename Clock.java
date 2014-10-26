@@ -77,7 +77,8 @@ public class Clock extends Thread {
 	
 	// wait until the given time
 	public void waitUntil( Time until ) {
-		waitFor( until.compareTo( getTime() ) );
+		if( until.compareTo( getTime() ) > 0 )
+			waitFor( until.compareTo( getTime() ) );
 	}
 	
 	// Gets the next time increment once it happens (i.e. once all threads have asked for it)

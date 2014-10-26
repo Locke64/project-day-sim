@@ -22,6 +22,10 @@ public class Manager extends Thread {
 	// lock for asking questions
 	private boolean busy = false;
 	
+	// another lock for asking questions, for when the manager needs to go to a meeting or to lunch
+	// this ensures the busy lock is obtained by the main Manager thread instead of any other Employee threads asking more questions
+	private boolean canAnswerQuestions = true;
+	
 	// barrier for morning standup
 	private CyclicBarrier standupBarrier;
 	
@@ -41,21 +45,15 @@ public class Manager extends Thread {
 		// team lead standup
 		morningStandup();
 		
-		//TODO finish answering one question if asked; the rest have to wait
+		// morning executive meeting
 		clock.waitUntil( Clock.timeOf( 10, 0 ) );
 		morningExecMeeting();
 		
 		// lunch
-		//TODO finish answering one question if asked; the rest have to wait
 		clock.waitUntil( Clock.timeOf( 12, 0 ) );
-		busy = true;
-		System.out.println( String.format( LUNCH_START, clock.getTime().toString() ) );
-		clock.waitUntil( Clock.timeOf( 1, 0 ) );
-		System.out.println( String.format( LUNCH_END, clock.getTime().toString() ) );
-		busy = false;
+		lunch();
 		
 		// afternoon executive meeting
-		//TODO finish answering one question if asked; the rest have to wait
 		clock.waitUntil( Clock.timeOf( 2, 0 ) );
 		afternoonExecMeeting();
 		
@@ -67,7 +65,7 @@ public class Manager extends Thread {
 	}
 	
 	private synchronized void morningStandup() {
-		busy = true;
+		getAttention();
 		try {
 			standupBarrier.await();
 		} catch( InterruptedException e ) {
@@ -79,28 +77,40 @@ public class Manager extends Thread {
 		clock.waitFor( 15 );
 		System.out.println( String.format( END_LEAD_MEETING, clock.getTime().toString() ) );
 		standupLatch.countDown();
-		busy = false;
-		notifyAll();
+		releaseAttention();
 	}
 	
 	// morning executive meeting
 	private synchronized void morningExecMeeting() {
-		busy = true;
+		canAnswerQuestions = false;
+		getAttention( true ); // finish answering a question
 		System.out.println( String.format( ARRIVE_EXE_MEETING, clock.getTime().toString(), "morning" ) );
 		clock.waitUntil( Clock.timeOf( 11, 0 ) );
 		System.out.println( String.format( LEAVE_EXE_MEETING, clock.getTime().toString(), "morning" ) );
-		busy = false;
-		notifyAll();
+		canAnswerQuestions = true;
+		releaseAttention();
+	}
+	
+	// lunch
+	private synchronized void lunch() {
+		canAnswerQuestions = false;
+		getAttention( true ); // finish answering a question		
+		System.out.println( String.format( LUNCH_START, clock.getTime().toString() ) );
+		clock.waitFor( 60 );
+		System.out.println( String.format( LUNCH_END, clock.getTime().toString() ) );
+		canAnswerQuestions = true;
+		releaseAttention();
 	}
 	
 	// afternoon executive meeting
 	private synchronized void afternoonExecMeeting() {
-		busy = true;
+		canAnswerQuestions = false;
+		getAttention( true ); // finish answering a question
 		System.out.println( String.format( ARRIVE_EXE_MEETING, clock.getTime().toString(), "afternoon" ) );
 		clock.waitUntil( Clock.timeOf( 3, 0 ) );
 		System.out.println( String.format( LEAVE_EXE_MEETING, clock.getTime().toString(), "afternoon" ) );
-		busy = false;
-		notifyAll();
+		canAnswerQuestions = true;
+		releaseAttention();
 	}
 	
 	// report to the manager for the daily project standup meeting
@@ -117,7 +127,21 @@ public class Manager extends Thread {
 	
 	// Employee emp asks manager a question
 	public synchronized void askQuestion( Employee emp ) {
-		while( busy ) {
+		getAttention();
+		System.out.println( String.format( HEAR_QUESTION, clock.getTime(), emp.getName() ) );
+		clock.waitFor( 10 );
+		System.out.println( String.format( ANSWER_QUESTION, clock.getTime(), emp.getName() ) );
+		releaseAttention();
+	}
+	
+	// Get the manager's attention (lock).
+	public synchronized void getAttention() {
+		getAttention( false );
+	}
+	
+	// Get the manager's attention (lock). If override is false, the manager's attention may be taken elsewhere first.
+	private synchronized void getAttention( boolean override ) {
+		while( busy || !(override || canAnswerQuestions) ) {
 			try {
 				wait();
 			} catch( InterruptedException e ) {
@@ -125,9 +149,9 @@ public class Manager extends Thread {
 			}
 		}
 		busy = true;
-		System.out.println( String.format( HEAR_QUESTION, clock.getTime(), emp.getName() ) );
-		clock.waitFor( 10 );
-		System.out.println( String.format( ANSWER_QUESTION, clock.getTime(), emp.getName() ) );
+	}
+	
+	public synchronized void releaseAttention() {
 		busy = false;
 		notifyAll();
 	}

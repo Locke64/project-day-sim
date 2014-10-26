@@ -1,14 +1,26 @@
+import java.util.concurrent.BrokenBarrierException;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.CountDownLatch;
 
 public class Main {
 
+	private static Manager manager;
+	private static Employee[] employees;
+
 	public static void main(String[] args) {
-	
+		// create latch & barrier
+		CountDownLatch startLatch = new CountDownLatch( 1 ); // Main thread counts down once others are started
+		CyclicBarrier endBarrier = new CyclicBarrier( 14, new Runnable() { // 12 employees, 1 manager, 1 clock
+				public void run() {
+					printStats();
+				}
+			});
+		
 		// create actors
-		Clock clock = new Clock();
+		Clock clock = new Clock( startLatch, endBarrier );
 		ConferenceRoom confRoom = new ConferenceRoom();
-		Manager manager = new Manager(clock);
-		Employee[] employees = new Employee[12];
+		manager = new Manager(clock);
+		employees = new Employee[12];
 		Employee[] teamLeads = new Employee[3];
 		int counter = 0;
 		for (int team = 1; team <= 3; team++) {
@@ -31,15 +43,11 @@ public class Main {
 		for (int a = 0; a < 12; a++) {
 			employees[a].start();
 		}
-		try {
-			for (int a = 0; a < 12; a++)
-				employees[a].join();
-			manager.join();
-		} catch (InterruptedException e){
-			e.printStackTrace();
-		}
-		
-		//Statistics
+		startLatch.countDown();
+	}
+	
+	//Statistics
+	public static void printStats() {
 		System.out.println("\n**********STATISTICS**********");
 		int totalWorking = 0;
 		int totalLunch = 0;

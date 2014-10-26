@@ -17,8 +17,11 @@ public class Clock extends Thread {
 	// The current time
 	private Time time;
 	
-	// Barrier that waits for each thread to ask for the time before incrementing the time
-	private CyclicBarrier incrementBarrier;
+	// Latch for beginning the day
+	private CountDownLatch clockinLatch;
+	
+	// Barrier for ending the day
+	private CyclicBarrier clockoutBarrier;
 	
 	// List of timers
 	private List<CountDownLatch> timers = Collections.synchronizedList( new ArrayList<CountDownLatch>() );
@@ -29,17 +32,16 @@ public class Clock extends Thread {
 	}
 	
 	// Creates the Clock
-	public Clock() {
+	public Clock( CountDownLatch clockin, CyclicBarrier clockout ) {
+		clockinLatch = clockin;
+		clockoutBarrier = clockout;
 		time = DAY_START.copy();
-		incrementBarrier = new CyclicBarrier( 12, new Runnable() { //TODO 13, once Manager is converted
-				public void run() {
-					incrementTime();
-				}
-			});
 	}
 	
 	// Runs the clock - one siumulated minute every 10 real milliseconds
 	public void run() {
+		clockIn();
+		
 		while( getTime().compareTo( DAY_END ) < 0 ) {
 			incrementTime();
 			synchronized( timers ) {
@@ -47,6 +49,8 @@ public class Clock extends Thread {
 					timer.countDown();
 			}
 		}
+		
+		clockOut();
 	}
 	
 	// Adds one minute to the simulated time
@@ -81,22 +85,24 @@ public class Clock extends Thread {
 			waitFor( until.compareTo( getTime() ) );
 	}
 	
-	// Gets the next time increment once it happens (i.e. once all threads have asked for it)
-	public Time nextTime() {
+	// wait until the day starts
+	public void clockIn() {
 		try {
-			incrementBarrier.await();
+			clockinLatch.await();
+		} catch( InterruptedException e ) {
+			e.printStackTrace();
+		}
+	}
+	
+	// ready for day to end
+	public void clockOut() {
+		try {
+			clockoutBarrier.await();
 		} catch( InterruptedException e ) {
 			e.printStackTrace();
 		} catch( BrokenBarrierException e ) {
 			e.printStackTrace();
 		}
-		return getTime();
-	}
-	
-	// Waits until the clock reaches the given time
-	public Time nextTime( Time until ) {
-		while( nextTime().compareTo( until ) < 0 ) {}
-		return getTime();
 	}
 	
 	// Simple data structure for Time, composed of hours and minutes.

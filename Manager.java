@@ -40,6 +40,8 @@ public class Manager extends Thread {
 	}
 	
 	public void run() {
+		clock.clockIn();
+		
 		// arrive
 		System.out.println( String.format( ARRIVE, clock.getTime().toString() ) );
 		
@@ -65,6 +67,7 @@ public class Manager extends Thread {
 		Clock.Time departTime = Clock.timeOf( 5, 0 );
 		clock.waitUntil( departTime );
 		System.out.println( String.format( DEPART, departTime, 8, 0 ) ); //TODO calculate working time
+		clock.clockOut();
 	}
 	
 	private synchronized void morningStandup() {

@@ -16,7 +16,7 @@ public class Employee extends Thread {
 	private static final String STANDUP_START = "%s\tTeam lead %s begins the team standup meeting.";
 	private static final String STANDUP_END = "%s\tTeam lead %s ends the team standup meeting.";
 	
-	private static final int CHANCE_QUESTIONS = 200; // dividing 1 by this number is the chance that a developer or team lead will have a question each minute
+	private static final int CHANCE_QUESTIONS = 1; // dividing 1 by this number is the chance that a developer or team lead will have a question each minute
 	
 	// random generator
 	Random gen;
@@ -27,14 +27,17 @@ public class Employee extends Thread {
 	// another lock for asking questions, for when the employee needs to go to a meeting or to lunch
 	private boolean canAnswerQuestions = true;
 	
-	// yet another lock for questions. this is used to prevent the status meeting from starting until all questions are answered or declined.
-	private int pendingQuestions = 0;
-	
 	// barrier for morning standup
 	private CyclicBarrier standupBarrier;
 	
 	// latch for ending the morning standup
 	private CountDownLatch standupLatch;
+	
+	// barrier for project status meeting
+	private CyclicBarrier statusBarrier;
+	
+	// latch for ending the status meeting
+	private CountDownLatch statusLatch;
 	
 	// collaborators
 	private Clock clock;
@@ -58,6 +61,8 @@ public class Employee extends Thread {
 		this.gen = new Random();
 		this.standupBarrier = new CyclicBarrier( 4 );
 		this.standupLatch = new CountDownLatch( 1 );
+		this.statusBarrier = new CyclicBarrier( 4 );
+		this.statusLatch = new CountDownLatch( 1 );
 		this.timeMeeting = 0;
 		this.timeWaiting = 0;
 	}
@@ -84,8 +89,8 @@ public class Employee extends Thread {
 		// ask questions until manager goes to lunch (to avoid missing lunch while waiting for manager)
 		// this also prevents devs from asking team leads questions when they could be at lunch
 		while( clock.getTime().compareTo( lunchStartTime ) < 0 ) {
-			askQuestions();
 			clock.waitFor( 1 );
+			askQuestions();
 		}
 		
 		// go to lunch
@@ -93,8 +98,8 @@ public class Employee extends Thread {
 		
 		Clock.Time statusMeetingTime = Clock.timeOf( 4, 0 );
 		while( clock.getTime().compareTo( statusMeetingTime ) < 0 ) {
-			askQuestions();
 			clock.waitFor( 1 );
+			askQuestions();
 		}
 		
 		// go to project status meeting
@@ -167,8 +172,6 @@ public class Employee extends Thread {
 	}
 	
 	private synchronized void lunch( Clock.Time lunchStartTime ) {
-		//TODO wait until not busy
-		// then, random between NOW and 30, instead of 0 and 30
 		clock.waitUntil( lunchStartTime );
 		canAnswerQuestions = false;
 		getAttention( true ); // finish answering a question
@@ -193,11 +196,21 @@ public class Employee extends Thread {
 		releaseAttention();
 	}
 
-	private synchronized void doStatusMeeting() {
-		getAttention( true );
-		manager.reportForStatus(); // report to manager for daily project status
+	private void doStatusMeeting() {
+		if( teamLead == null ) {
+			try {
+				statusBarrier.await(); // wait for team to check in
+				manager.reportForStatus(); // report readiness to manager
+				statusLatch.countDown(); // let the team go
+			} catch( InterruptedException e ) {
+				e.printStackTrace();
+			} catch( BrokenBarrierException e ) {
+				e.printStackTrace();
+			}
+		} else {
+			teamLead.reportForStatus(); // report readiness to team lead
+		}
 		timeMeeting += 15; // has 15 minutes of meetings in the morning
-		releaseAttention();
 	}
 
 	public void reportForStandup() {
@@ -213,7 +226,6 @@ public class Employee extends Thread {
 	
 	// Employee emp asks its team lead a question.
 	public int askQuestion( Employee emp ) {
-		++pendingQuestions;
 		int managerWait = 0;
 		getAttention();
 		if (gen.nextBoolean()) { //team lead can answer the question
@@ -225,9 +237,19 @@ public class Employee extends Thread {
 			emp.increaseTimeMeeting(); // team lead and developer both meet with manager for 10 minutes
 			timeWaiting += managerWait;
 		}
-		--pendingQuestions;
 		releaseAttention();
 		return managerWait;
+	}
+
+	public void reportForStatus() {
+		try {
+			statusBarrier.await(); // report readiness to team lead
+			statusLatch.await(); // wait until the meeting is over
+		} catch( InterruptedException e ) {
+			e.printStackTrace();
+		} catch( BrokenBarrierException e ) {
+			e.printStackTrace();
+		}
 	}
 	
 	// Get the employee's attention (lock).
@@ -236,9 +258,8 @@ public class Employee extends Thread {
 	}
 		
 	// Get the employee's attention (lock). If override is false, the employee's attention may be taken elsewhere first.
-	// If override is true and it's time for the status meeting, this will wait until all questions are answered or declined.
 	private synchronized void getAttention( boolean override ) {
-		while( busy || !(override || canAnswerQuestions) || (override && clock.getTime().compareTo( Clock.timeOf( 4, 0 ) ) >= 0 && pendingQuestions > 0 ) ) {
+		while( busy || !(override || canAnswerQuestions) ) {
 			try {
 				wait();
 			} catch( InterruptedException e ) {

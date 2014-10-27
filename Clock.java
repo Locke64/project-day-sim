@@ -5,8 +5,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.ArrayList;
 
+// Clock simulates the passage of time.
 public class Clock extends Thread {
 
+	// constants
 	public static final int DAY_START_HOUR = 8;
 	public static final int DAY_START_MINUTE = 0;
 	public static final int DAY_END_HOUR = 5;
@@ -38,29 +40,29 @@ public class Clock extends Thread {
 		time = DAY_START.copy();
 	}
 	
-	// Runs the clock - one siumulated minute every 10 real milliseconds
+	// Runs the clock - one simulated minute every 10 real milliseconds
 	public void run() {
 		clockIn();
 		
 		while( getTime().compareTo( DAY_END ) < 0 ) {
-			incrementTime();
-			synchronized( timers ) {
-				for( CountDownLatch timer : timers )
-					timer.countDown();
+			try {
+				// increment the time
+				synchronized( this ) {
+					wait(10);
+					time.increment();
+				}
+				
+				// decrement the counters
+				synchronized( timers ) {
+					for( CountDownLatch timer : timers )
+						timer.countDown();
+				}
+			} catch( InterruptedException e ) {
+				e.printStackTrace();
 			}
 		}
 		
 		clockOut();
-	}
-	
-	// Adds one minute to the simulated time
-	private synchronized void incrementTime() {
-		try {
-			wait(10);
-			time.increment();
-		} catch( InterruptedException e ) {
-			e.printStackTrace();
-		}
 	}
 	
 	// Gets the current simulated time

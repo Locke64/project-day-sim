@@ -2,6 +2,7 @@ import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 
+// The project manager.
 public class Manager extends Thread {
 
 	// logging strings
@@ -174,18 +175,6 @@ public class Manager extends Thread {
 		}
 	}
 	
-	// report to the manager for the daily project status meeting
-	public void reportForStatus() {
-		try {
-			statusBarrier.await(); // report ready to begin
-			statusLatch.await(); // wait for meeting to end
-		} catch( InterruptedException e ) {
-			e.printStackTrace();
-		} catch( BrokenBarrierException e ) {
-			e.printStackTrace();
-		}
-	}
-	
 	// Employee emp asks manager a question
 	public int askQuestion( Employee emp ) {
 		Clock.Time startWaiting = clock.getTime();
@@ -201,6 +190,18 @@ public class Manager extends Thread {
 		}
 		releaseAttention();
 		return endWaiting.compareTo(startWaiting);
+	}
+	
+	// report to the manager for the daily project status meeting
+	public void reportForStatus() {
+		try {
+			statusBarrier.await(); // report ready to begin
+			statusLatch.await(); // wait for meeting to end
+		} catch( InterruptedException e ) {
+			e.printStackTrace();
+		} catch( BrokenBarrierException e ) {
+			e.printStackTrace();
+		}
 	}
 	
 	// Get the manager's attention (lock).

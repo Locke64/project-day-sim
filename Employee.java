@@ -3,8 +3,10 @@ import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.CountDownLatch;
 import java.util.Random;
 
+// An employee working on the project. May or may not be a team lead.
 public class Employee extends Thread {
 	
+	// logging strings
 	private static final String ARRIVE = "%s\tEmployee %s arrives.";
 	private static final String LUNCH_START = "%s\tEmployee %s goes to lunch.";
 	private static final String LUNCH_END = "%s\tEmployee %s finishes lunch.";
@@ -16,10 +18,11 @@ public class Employee extends Thread {
 	private static final String STANDUP_START = "%s\tTeam lead %s begins the team standup meeting.";
 	private static final String STANDUP_END = "%s\tTeam lead %s ends the team standup meeting.";
 	
-	private static final int CHANCE_QUESTIONS = 1; // dividing 1 by this number is the chance that a developer or team lead will have a question each minute
+	// question frequency configuration - dividing 1 by this number is the chance that a developer or team lead will have a question each minute
+	private static final int CHANCE_QUESTIONS = 200;
 	
 	// random generator
-	Random gen;
+	private Random gen;
 	
 	// lock for asking questions
 	private boolean busy = true;
@@ -71,7 +74,7 @@ public class Employee extends Thread {
 		clock.clockIn();
 		
 		// arrive between 8:00 and 8:30
-		arriveMinute = gen.nextInt( 30 ); //TODO 31
+		arriveMinute = gen.nextInt( 30 );
 		Clock.Time arriveTime = Clock.timeOf( 8, arriveMinute );
 		clock.waitUntil( arriveTime );
 		System.out.println( String.format( ARRIVE, arriveTime, getName() ) );
@@ -80,14 +83,14 @@ public class Employee extends Thread {
 		// go to daily standups
 		doStandups();
 		
+		// pick a desired lunchtime
 		int lunchHour = gen.nextInt( 3 ) + 9; // generate random hour from 9am and 12pm
 		if (lunchHour > 12)
 			lunchHour -= 12;
 		int lunchMinute = gen.nextInt( 60 );
 		Clock.Time lunchStartTime = Clock.timeOf( lunchHour, lunchMinute );
 
-		// ask questions until manager goes to lunch (to avoid missing lunch while waiting for manager)
-		// this also prevents devs from asking team leads questions when they could be at lunch
+		// ask questions until lunch
 		while( clock.getTime().compareTo( lunchStartTime ) < 0 ) {
 			clock.waitFor( 1 );
 			askQuestions();
@@ -96,6 +99,7 @@ public class Employee extends Thread {
 		// go to lunch
 		lunch( lunchStartTime );
 		
+		// ask questions until the project status meeting
 		Clock.Time statusMeetingTime = Clock.timeOf( 4, 0 );
 		while( clock.getTime().compareTo( statusMeetingTime ) < 0 ) {
 			clock.waitFor( 1 );
@@ -111,7 +115,7 @@ public class Employee extends Thread {
 		Clock.Time departTime = Clock.timeOf( 4, departMinute );
 		clock.waitUntil( departTime );
 		
-		// assuming I won't ask questions after the project status meeting?
+		// assuming I won't ask questions after the project status meeting
 		
 		// leave
 		timeWorked = departMinute - arriveMinute - lunchDuration;
@@ -119,8 +123,13 @@ public class Employee extends Thread {
 		clock.clockOut();
 	}
 
+	/*
+	 * --- run helpers ---
+	 */
+	
+	// Go to standup meeting(s)
 	private synchronized void doStandups() {
-		busy = true;
+		getAttention();
 		if( teamLead == null ) {
 			manager.reportForStandup(); // report to manager for daily project standup
 			morningStandup(); // hold team-based standup
@@ -129,28 +138,29 @@ public class Employee extends Thread {
 			teamLead.reportForStandup(); // report to team lead for team-based standup
 			timeMeeting += 15; // has 15 minutes of meetings in the morning
 		}
-		busy = false;
-		notifyAll();
+		releaseAttention();
 	}
 	
+	// team-based standup meeting
 	private synchronized void morningStandup() {
 		try {
-			standupBarrier.await();
+			standupBarrier.await(); // wait for team members to check in
 		} catch( InterruptedException e ) {
 			e.printStackTrace();
 		} catch( BrokenBarrierException e ) {
 			e.printStackTrace();
 		}
-		confRoom.enter();
+		confRoom.enter(); // get the conference room
 		System.out.println( String.format( STANDUP_START, clock.getTime(), getName() ) );
 		clock.waitFor( 15 );
 		System.out.println( String.format( STANDUP_END, clock.getTime(), getName() ) );
-		confRoom.leave();
-		standupLatch.countDown();
+		confRoom.leave(); // release the conference room
+		standupLatch.countDown(); // let the team go
 	}
 	
+	// ask questions to manager if team lead, otherwise to team lead
 	private synchronized void askQuestions() {
-		if( !busy ) {
+		if( !busy ) { // can't block here or we might ask a question during a meeting or something, so just skip the whole thing if busy
 			int askQuestion = gen.nextInt(CHANCE_QUESTIONS);
 			if (askQuestion == 0) {
 				int managerWait;
@@ -171,12 +181,15 @@ public class Employee extends Thread {
 		}
 	}
 	
+	// go to lunch. try for the given lunchStartTime, but finish getting a question answered first if there's one in progress.
 	private synchronized void lunch( Clock.Time lunchStartTime ) {
-		clock.waitUntil( lunchStartTime );
+		clock.waitUntil( lunchStartTime ); // planned lunch start time
 		canAnswerQuestions = false;
-		getAttention( true ); // finish answering a question
-		lunchStartTime = clock.getTime();
+		getAttention( true ); // finish answering a question (but no more than one)
+		lunchStartTime = clock.getTime(); // actual lunch start time
 		System.out.println( String.format( LUNCH_START, lunchStartTime, getName() ) );
+		
+		// compute an end time
 		int lunchEndHour = lunchStartTime.hour;
 		int lunchEndMinute = lunchStartTime.minute + 30;
 		lunchEndMinute += gen.nextInt( 30 - arriveMinute );
@@ -196,8 +209,9 @@ public class Employee extends Thread {
 		releaseAttention();
 	}
 
+	// project status meeting
 	private void doStatusMeeting() {
-		if( teamLead == null ) {
+		if( teamLead == null ) { // I'm a team lead
 			try {
 				statusBarrier.await(); // wait for team to check in
 				manager.reportForStatus(); // report readiness to manager
@@ -207,12 +221,17 @@ public class Employee extends Thread {
 			} catch( BrokenBarrierException e ) {
 				e.printStackTrace();
 			}
-		} else {
+		} else { // I'm not a team lead
 			teamLead.reportForStatus(); // report readiness to team lead
 		}
 		timeMeeting += 15; // has 15 minutes of meetings in the morning
 	}
 
+	/*
+	 * --- team management ---
+	 */
+
+	// report readiness to team lead for morning team-based standup
 	public void reportForStandup() {
 		try {
 			standupBarrier.await(); // report ready to begin
@@ -241,6 +260,7 @@ public class Employee extends Thread {
 		return managerWait;
 	}
 
+	// report readiness to team lead for afternoon project status meeting
 	public void reportForStatus() {
 		try {
 			statusBarrier.await(); // report readiness to team lead
@@ -268,11 +288,16 @@ public class Employee extends Thread {
 		}
 		busy = true;
 	}
-		
+	
+	// Release the employee's attention (lock).
 	public synchronized void releaseAttention() {
 		busy = false;
 		notifyAll();
 	}
+	
+	/*
+	 * --- stats ---
+	 */
 	
 	public int getLunchDuration() {
 		return this.lunchDuration;
